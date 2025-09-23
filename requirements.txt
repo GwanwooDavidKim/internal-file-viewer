@@ -1,0 +1,30 @@
+# 사내 파일 뷰어 (Internal File Viewer) 의존성 패키지
+# Python 3.8 이상에서 동작합니다.
+
+# GUI 프레임워크
+PyQt6==6.9.1
+
+# 파일 처리 라이브러리
+PyMuPDF==1.26.4        # PDF 파일 처리 (페이지 렌더링 및 텍스트 추출)
+python-pptx==1.0.2     # PowerPoint 파일 텍스트 추출
+python-docx==1.2.0     # Word 문서 텍스트 추출
+Pillow==11.3.0          # 이미지 파일 처리
+
+# Excel 파일 처리
+pandas==2.3.2          # 데이터 분석 및 Excel 시트 읽기
+openpyxl==3.1.5        # Excel 파일 읽기/쓰기
+
+# 추가 의존성 (자동 설치됨)
+numpy==2.3.3           # pandas의 의존성
+lxml==6.0.2            # XML 처리 (python-docx, openpyxl 의존성)
+et-xmlfile==2.0.0      # openpyxl의 의존성
+six==1.17.0            # python-dateutil 의존성
+python-dateutil==2.9.0.post0  # pandas 의존성
+pytz==2025.2           # pandas 의존성
+tzdata==2025.2         # pandas 의존성
+typing-extensions==4.15.0  # pandas 의존성
+xlsxwriter==3.2.9      # pandas Excel 지원
+
+# PyQt6 의존성
+PyQt6-Qt6==6.9.2
+PyQt6-sip==13.10.2
