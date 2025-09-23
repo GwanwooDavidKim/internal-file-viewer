@@ -14,6 +14,7 @@ from core.auth import AuthenticationManager
 from ui.login_dialog import LoginDialog
 from ui.file_browser import FileBrowser
 from ui.content_viewer import ContentViewer
+from ui.search_widget import SearchWidget
 
 
 class MainWindow(QMainWindow):
@@ -93,20 +94,37 @@ class MainWindow(QMainWindow):
         self.file_browser.file_selected.connect(self.on_file_selected)
         left_layout.addWidget(self.file_browser)
         
-        # 우측 패널 (콘텐츠 뷰어)
+        # 우측 패널 (콘텐츠 뷰어 및 검색)
         right_panel = QWidget()
         right_layout = QVBoxLayout()
         right_panel.setLayout(right_layout)
+        
+        # 탭 위젯으로 콘텐츠 뷰어와 검색 분리
+        from PyQt6.QtWidgets import QTabWidget
+        self.right_tabs = QTabWidget()
+        
+        # 콘텐츠 뷰어 탭
+        content_widget = QWidget()
+        content_layout = QVBoxLayout()
+        content_widget.setLayout(content_layout)
         
         viewer_title = QLabel("👁️ 콘텐츠 뷰어")
         viewer_title.setFont(QFont(config.UI_FONTS["font_family"], 
                                  config.UI_FONTS["subtitle_size"], 
                                  QFont.Weight.Bold))
-        right_layout.addWidget(viewer_title)
+        content_layout.addWidget(viewer_title)
         
-        # 콘텐츠 뷰어 위젯
         self.content_viewer = ContentViewer()
-        right_layout.addWidget(self.content_viewer)
+        content_layout.addWidget(self.content_viewer)
+        
+        self.right_tabs.addTab(content_widget, "📄 파일 뷰어")
+        
+        # 검색 탭
+        self.search_widget = SearchWidget()
+        self.search_widget.file_selected.connect(self.on_file_selected)
+        self.right_tabs.addTab(self.search_widget, "🔍 파일 검색")
+        
+        right_layout.addWidget(self.right_tabs)
         
         # 스플리터에 패널 추가
         self.splitter.addWidget(left_panel)
@@ -232,6 +250,7 @@ class MainWindow(QMainWindow):
         if folder_path:
             self.current_folder_path = folder_path
             self.file_browser.set_root_path(folder_path)
+            self.search_widget.set_directory(folder_path)
             self.status_bar.showMessage(f"폴더 로드됨: {folder_path}")
     
     def refresh_view(self):

@@ -12,6 +12,7 @@ import sys
 import os
 import config
 from core.auth import AuthenticationManager
+from utils.logger import LoggerManager, get_logger
 
 
 def console_login(auth_manager):
@@ -24,6 +25,14 @@ def console_login(auth_manager):
     Returns:
         bool: 로그인 성공 여부
     """
+    logger = get_logger()
+    
+    # 비대화형 환경 감지
+    if not sys.stdin.isatty():
+        logger.warning("비대화형 환경에서 실행 중 - 콘솔 로그인 불가")
+        print("❌ 비대화형 환경에서는 GUI 모드를 사용하세요: python main.py --gui")
+        return False
+    
     print(f"\n=== {config.APP_SETTINGS['app_name']} v{config.APP_SETTINGS['app_version']} ===")
     print("콘솔 모드로 실행 중입니다.")
     print("\n데모용 계정:")
@@ -155,13 +164,16 @@ def show_user_info(user_info):
     print("=" * 40)
 
 
-def setup_application():
+def setup_application(gui_mode=False):
     """
     애플리케이션 초기 설정을 수행합니다.
     """
     print(f"🚀 {config.APP_SETTINGS['app_name']} 시작 중...")
     print(f"📋 버전: {config.APP_SETTINGS['app_version']}")
-    print("🔧 콘솔 모드로 실행됩니다.")
+    if gui_mode:
+        print("🖥️ GUI 모드로 실행됩니다.")
+    else:
+        print("🔧 콘솔 모드로 실행됩니다.")
     return True
 
 
@@ -250,19 +262,24 @@ def main():
     메인 함수 - 애플리케이션의 진입점입니다.
     """
     try:
-        # 애플리케이션 설정
-        setup_application()
+        # 로깅 시스템 초기화
+        logger_manager = LoggerManager()
+        logger = logger_manager.get_app_logger()
+        logger.info("애플리케이션 시작")
         
         # 의존성 확인
         if not check_dependencies():
+            logger.error("의존성 확인 실패")
             sys.exit(1)
         
         # 실행 모드 확인 (GUI 또는 콘솔)
         if len(sys.argv) > 1 and sys.argv[1] == "--gui":
-            print("🖥️ GUI 모드로 실행 중...")
+            # GUI 모드
+            setup_application(gui_mode=True)
             launch_gui()
         else:
             # 콘솔 모드 (기본)
+            setup_application(gui_mode=False)
             auth_manager = AuthenticationManager()
             
             # 로그인 수행

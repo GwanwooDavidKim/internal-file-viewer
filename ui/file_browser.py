@@ -5,9 +5,9 @@
 QTreeView와 QFileSystemModel을 사용하여 파일 시스템을 탐색하는 위젯입니다.
 """
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeView, 
-                            QLineEdit, QPushButton, QLabel, QComboBox, QFrame)
+                            QLineEdit, QPushButton, QLabel, QComboBox, QFrame, QFileSystemModel)
 from PyQt6.QtCore import Qt, QDir, QFileSystemWatcher, pyqtSignal, QModelIndex
-from PyQt6.QtGui import QFont, QFileSystemModel
+from PyQt6.QtGui import QFont
 import os
 from typing import Optional
 import config
