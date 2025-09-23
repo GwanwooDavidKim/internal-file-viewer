@@ -26,9 +26,9 @@ def console_login(auth_manager):
     """
     print(f"\n=== {config.APP_SETTINGS['app_name']} v{config.APP_SETTINGS['app_version']} ===")
     print("콘솔 모드로 실행 중입니다.")
-    print("\n사용 가능한 계정:")
-    print("• 관리자: admin / admin123")
-    print("• 팀원: user1 / password1, user2 / password2, user3 / password3")
+    print("\n데모용 계정:")
+    print("• 관리자 계정과 팀원 계정을 사용할 수 있습니다")
+    print("• 실제 운영 시에는 설정에서 계정을 관리하세요")
     print("-" * 50)
     
     max_attempts = 3

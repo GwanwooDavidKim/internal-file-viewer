@@ -6,16 +6,17 @@
 """
 from datetime import datetime, timedelta
 
-# 관리자 계정 정보 (Admin Accounts)
+# 관리자 계정 정보 (Admin Accounts) - 해시된 비밀번호 사용
+# 비밀번호는 bcrypt로 해시되어 저장됩니다.
 ADMIN_ACCOUNTS = {
-    "admin": "admin123",  # 관리자 계정
+    "admin": "$2b$12$8lNX5LCP/ho6tkrKCH0Tn.yxdV.aUyxMSrgc6tplrLRyDTez92C62",  # admin123 해시
 }
 
-# 배포용 팀원 계정 정보 (Deployable Team Member Accounts)
+# 배포용 팀원 계정 정보 (Deployable Team Member Accounts) - 해시된 비밀번호 사용
 DEPLOYABLE_ACCOUNTS = {
-    "user1": "password1",
-    "user2": "password2",
-    "user3": "password3",
+    "user1": "$2b$12$eS5h1H8sLmfDkOFe2uTfYuJ4vKNr26iaSl/a61AQyRlmX2bC8IyDS",  # password1 해시
+    "user2": "$2b$12$L8W1e3.UCd7TollYLTdMJOOVnh9LoxavMKx/k7QS.mp1oHDGqKNwm",  # password2 해시  
+    "user3": "$2b$12$C/UN5Th4xci/YV5MWYseMe/qbPhCxpI8xO/cX4AHaYczjPfN6HIt2",  # password3 해시
 }
 
 # 계정 만료일 설정 (Account Expiration Dates)

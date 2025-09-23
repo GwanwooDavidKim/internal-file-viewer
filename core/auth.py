@@ -6,6 +6,7 @@
 """
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Any
+import bcrypt
 import config
 
 
@@ -44,7 +45,7 @@ class AuthenticationManager:
             
             # 관리자 계정 확인
             if username in config.ADMIN_ACCOUNTS:
-                if config.ADMIN_ACCOUNTS[username] == password:
+                if self._verify_password(password, config.ADMIN_ACCOUNTS[username]):
                     self._set_user_session(username, is_admin=True)
                     return True, f"관리자로 로그인되었습니다. 환영합니다, {username}님!"
                 else:
@@ -52,7 +53,7 @@ class AuthenticationManager:
             
             # 일반 사용자 계정 확인
             if username in config.DEPLOYABLE_ACCOUNTS:
-                if config.DEPLOYABLE_ACCOUNTS[username] == password:
+                if self._verify_password(password, config.DEPLOYABLE_ACCOUNTS[username]):
                     # 계정 만료 여부 확인
                     if config.is_account_expired(username):
                         remaining_days = config.get_remaining_days(username)
@@ -69,6 +70,22 @@ class AuthenticationManager:
             
         except Exception as e:
             return False, f"로그인 중 오류가 발생했습니다: {str(e)}"
+    
+    def _verify_password(self, password: str, hashed_password: str) -> bool:
+        """
+        비밀번호를 해시와 비교하여 검증합니다.
+        
+        Args:
+            password (str): 평문 비밀번호
+            hashed_password (str): 해시된 비밀번호
+            
+        Returns:
+            bool: 비밀번호 일치 여부
+        """
+        try:
+            return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+        except Exception:
+            return False
     
     def _set_user_session(self, username: str, is_admin: bool = False) -> None:
         """
