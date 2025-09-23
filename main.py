@@ -219,6 +219,32 @@ def check_dependencies():
     return True
 
 
+def launch_gui():
+    """
+    GUI 모드로 애플리케이션을 실행합니다.
+    """
+    try:
+        from PyQt6.QtWidgets import QApplication
+        from ui.main_window import MainWindow
+        
+        app = QApplication(sys.argv)
+        
+        # 메인 윈도우 생성 및 표시
+        window = MainWindow()
+        window.show()
+        
+        # 이벤트 루프 실행
+        sys.exit(app.exec())
+        
+    except ImportError as e:
+        print(f"❌ PyQt6를 사용할 수 없습니다: {e}")
+        print("GUI 모드를 사용하려면 PyQt6를 설치해주세요: pip install PyQt6")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ GUI 모드 실행 중 오류가 발생했습니다: {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main():
     """
     메인 함수 - 애플리케이션의 진입점입니다.
@@ -231,16 +257,21 @@ def main():
         if not check_dependencies():
             sys.exit(1)
         
-        # 인증 관리자 생성
-        auth_manager = AuthenticationManager()
-        
-        # 로그인 수행
-        if console_login(auth_manager):
-            # 메인 메뉴 실행
-            console_menu(auth_manager)
+        # 실행 모드 확인 (GUI 또는 콘솔)
+        if len(sys.argv) > 1 and sys.argv[1] == "--gui":
+            print("🖥️ GUI 모드로 실행 중...")
+            launch_gui()
         else:
-            print("❌ 로그인에 실패했습니다.")
-            sys.exit(1)
+            # 콘솔 모드 (기본)
+            auth_manager = AuthenticationManager()
+            
+            # 로그인 수행
+            if console_login(auth_manager):
+                # 메인 메뉴 실행
+                console_menu(auth_manager)
+            else:
+                print("❌ 로그인에 실패했습니다.")
+                sys.exit(1)
         
     except Exception as e:
         print(f"❌ 애플리케이션 실행 중 오류가 발생했습니다: {str(e)}", file=sys.stderr)

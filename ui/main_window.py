@@ -6,12 +6,14 @@
 """
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QSplitter, QLabel, QMenuBar, QStatusBar, QPushButton,
-                            QFileDialog, QMessageBox)
+                            QFileDialog, QMessageBox, QDialog)
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QAction
 import config
 from core.auth import AuthenticationManager
 from ui.login_dialog import LoginDialog
+from ui.file_browser import FileBrowser
+from ui.content_viewer import ContentViewer
 
 
 class MainWindow(QMainWindow):
@@ -86,18 +88,10 @@ class MainWindow(QMainWindow):
                                    QFont.Weight.Bold))
         left_layout.addWidget(explorer_title)
         
-        # 파일 탐색기 플레이스홀더
-        self.file_explorer_label = QLabel("폴더를 선택하여 파일 탐색을 시작하세요.")
-        self.file_explorer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.file_explorer_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {config.UI_COLORS['background']};
-                border: 2px dashed {config.UI_COLORS['secondary']};
-                padding: 20px;
-                color: {config.UI_COLORS['text']};
-            }}
-        """)
-        left_layout.addWidget(self.file_explorer_label)
+        # 파일 브라우저 위젯
+        self.file_browser = FileBrowser()
+        self.file_browser.file_selected.connect(self.on_file_selected)
+        left_layout.addWidget(self.file_browser)
         
         # 우측 패널 (콘텐츠 뷰어)
         right_panel = QWidget()
@@ -110,18 +104,9 @@ class MainWindow(QMainWindow):
                                  QFont.Weight.Bold))
         right_layout.addWidget(viewer_title)
         
-        # 콘텐츠 뷰어 플레이스홀더
-        self.content_viewer_label = QLabel("파일을 선택하면 여기에 내용이 표시됩니다.")
-        self.content_viewer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.content_viewer_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {config.UI_COLORS['background']};
-                border: 2px dashed {config.UI_COLORS['secondary']};
-                padding: 20px;
-                color: {config.UI_COLORS['text']};
-            }}
-        """)
-        right_layout.addWidget(self.content_viewer_label)
+        # 콘텐츠 뷰어 위젯
+        self.content_viewer = ContentViewer()
+        right_layout.addWidget(self.content_viewer)
         
         # 스플리터에 패널 추가
         self.splitter.addWidget(left_panel)
@@ -246,17 +231,28 @@ class MainWindow(QMainWindow):
         
         if folder_path:
             self.current_folder_path = folder_path
-            self.file_explorer_label.setText(f"선택된 폴더: {folder_path}\\n\\n(파일 탐색 기능은 개발 중입니다)")
+            self.file_browser.set_root_path(folder_path)
             self.status_bar.showMessage(f"폴더 로드됨: {folder_path}")
     
     def refresh_view(self):
         """뷰를 새로고침합니다."""
         if self.current_folder_path:
             self.status_bar.showMessage("새로고침 중...")
-            # 여기에 실제 새로고침 로직 구현
+            self.file_browser.refresh_view()
             self.status_bar.showMessage("새로고침 완료")
         else:
             QMessageBox.information(self, "알림", "먼저 폴더를 선택해주세요.")
+    
+    def on_file_selected(self, file_path: str):
+        """
+        파일이 선택되었을 때 호출됩니다.
+        
+        Args:
+            file_path (str): 선택된 파일의 경로
+        """
+        self.status_bar.showMessage(f"파일 로딩 중: {file_path}")
+        self.content_viewer.load_file(file_path)
+        self.status_bar.showMessage(f"파일 로드됨: {file_path}")
     
     def logout(self):
         """로그아웃을 수행합니다."""
