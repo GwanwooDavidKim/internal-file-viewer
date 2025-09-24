@@ -70,6 +70,7 @@ UI_FONTS = {
     "title_size": 16,      # 제목 폰트 크기
     "subtitle_size": 12,   # 부제목 폰트 크기
     "body_size": 10,       # 본문 폰트 크기
+    "small_size": 9,       # 작은 텍스트 폰트 크기
     "font_family": "맑은 고딕",  # 기본 폰트
 }
 
