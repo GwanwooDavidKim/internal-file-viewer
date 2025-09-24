@@ -445,13 +445,20 @@ class ContentViewer(QWidget):
             
             # 슬라이드가 여러 개인 경우 네비게이션 컨트롤 표시
             if slide_count > 1:
-                self.page_spin.setMaximum(slide_count)
+                self.page_spin.setRange(1, slide_count)
+                self.page_spin.setValue(1)  # 첫 번째 슬라이드로 초기화
                 self.page_total_label.setText(f"/ {slide_count}")
                 self.page_label.setText("슬라이드:")
                 self.page_label.show()
                 self.page_spin.show()
                 self.page_total_label.show()
                 self.control_frame.show()
+            else:
+                # 슬라이드가 1개인 경우 컨트롤 숨김
+                self.control_frame.hide()
+            
+            # 첫 번째 슬라이드 텍스트 로드
+            self.load_powerpoint_slide_text(1)
         
         # 시트 컨트롤 숨김
         self.sheet_label.hide()
@@ -658,16 +665,8 @@ pip install Pillow
                 self.doc_text_viewer.setPlainText(f"페이지 {page_num} 텍스트 로딩 오류: {str(e)}")
         
         elif file_type == 'powerpoint':
-            # PowerPoint는 슬라이드 렌더링하지 않음 - 원본 열기만 지원
-            pass
-            
-            # PowerPoint 슬라이드별 텍스트 업데이트는 유지 (검색 기능을 위해)
-            ppt_handler = self.file_manager.handlers['powerpoint']
-            slide_data = ppt_handler.extract_text_from_slide(self.current_file_path, page_num - 1)
-            if 'full_text' in slide_data:
-                self.doc_text_viewer.setPlainText(f"=== 슬라이드 {page_num} ===\n\n{slide_data['full_text']}")
-            else:
-                self.doc_text_viewer.setPlainText(f"슬라이드 {page_num} 텍스트 로딩 오류")
+            # PowerPoint는 이미지 렌더링하지 않고 텍스트만 업데이트
+            self.load_powerpoint_slide_text(page_num)
     
     def open_original_file(self):
         """원본 파일을 기본 프로그램으로 엽니다."""
@@ -694,6 +693,18 @@ pip install Pillow
         except Exception as e:
             print(f"❌ 원본 파일 열기 실패: {e}")
             # 사용자에게 오류 알림을 표시할 수도 있음
+    
+    def load_powerpoint_slide_text(self, slide_num: int):
+        """PowerPoint 슬라이드의 텍스트를 로드합니다."""
+        try:
+            ppt_handler = self.file_manager.handlers['powerpoint']
+            slide_data = ppt_handler.extract_text_from_slide(self.current_file_path, slide_num - 1)
+            if slide_data and 'full_text' in slide_data:
+                self.doc_text_viewer.setPlainText(f"=== 슬라이드 {slide_num} ===\n\n{slide_data['full_text']}")
+            else:
+                self.doc_text_viewer.setPlainText(f"슬라이드 {slide_num} 텍스트 로딩 오류")
+        except Exception as e:
+            self.doc_text_viewer.setPlainText(f"슬라이드 {slide_num} 텍스트 로딩 오류: {str(e)}")
     
     def on_sheet_changed(self, sheet_name: str):
         """시트 변경 시 호출됩니다."""
