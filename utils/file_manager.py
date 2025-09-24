@@ -13,6 +13,7 @@ from utils.image_handler import ImageHandler
 from utils.excel_handler import ExcelHandler
 from utils.word_handler import WordHandler
 from utils.powerpoint_handler import PowerPointHandler
+from utils.text_handler import TextHandler
 
 
 class FileManager:
@@ -31,10 +32,11 @@ class FileManager:
             'excel': ExcelHandler(),
             'word': WordHandler(),
             'powerpoint': PowerPointHandler(),
+            'text': TextHandler(),
         }
         
         # 핸들러 우선순위 (확인 순서)
-        self.handler_priority = ['pdf', 'image', 'excel', 'word', 'powerpoint']
+        self.handler_priority = ['pdf', 'image', 'excel', 'word', 'powerpoint', 'text']
     
     def get_file_type(self, file_path: str) -> Optional[str]:
         """
@@ -45,7 +47,7 @@ class FileManager:
             file_path (str): 파일 경로
             
         Returns:
-            Optional[str]: 파일 타입 ('pdf', 'image', 'excel', 'word', 'powerpoint') 또는 None
+            Optional[str]: 파일 타입 ('pdf', 'image', 'excel', 'word', 'powerpoint', 'text') 또는 None
         """
         # 각 핸들러에게 순서대로 파일 처리 가능 여부 확인
         for handler_type in self.handler_priority:
@@ -125,6 +127,8 @@ class FileManager:
                             detail_info = handler.get_document_info(file_path)
                         elif basic_info['file_type'] == 'powerpoint':
                             detail_info = handler.get_presentation_info(file_path)
+                        elif basic_info['file_type'] == 'text':
+                            detail_info = handler.get_metadata(file_path)
                         else:
                             detail_info = {}
                         
@@ -174,6 +178,9 @@ class FileManager:
                             text_lines.append(" | ".join(values))
                     return "\\n".join(text_lines)
                 return "Excel 데이터를 읽을 수 없습니다."
+            elif file_type == 'text':
+                max_chars = kwargs.get('max_chars', None)
+                return handler.extract_text(file_path, max_chars=max_chars)
             elif file_type == 'image':
                 # 이미지는 텍스트 추출이 불가능
                 return "이미지 파일은 텍스트 추출이 불가능합니다."

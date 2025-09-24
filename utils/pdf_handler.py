@@ -91,7 +91,7 @@ class PdfHandler:
     
     def extract_text(self, file_path: str, max_pages: int = None) -> str:
         """
-        PDF에서 텍스트를 추출합니다.
+        PDF에서 텍스트를 추출합니다. 여러 방법을 시도하여 최대한 많은 텍스트를 추출합니다.
         
         Args:
             file_path (str): PDF 파일 경로
@@ -110,14 +110,70 @@ class PdfHandler:
                 
                 for page_num in range(page_count):
                     page = doc[page_num]
+                    
+                    # 방법 1: 기본 텍스트 추출
                     text = page.get_text()
+                    
+                    # 방법 2: 텍스트가 없거나 적으면 다른 방법 시도
+                    if len(text.strip()) < 50:
+                        # OCR이 필요할 수 있는 경우를 위한 더 세밀한 텍스트 추출
+                        text_dict = page.get_text("dict")
+                        extracted_text = self._extract_text_from_dict(text_dict)
+                        if len(extracted_text.strip()) > len(text.strip()):
+                            text = extracted_text
+                    
+                    # 방법 3: 텍스트 블록 단위로 추출
+                    if len(text.strip()) < 20:
+                        blocks = page.get_text("blocks")
+                        block_texts = []
+                        for block in blocks:
+                            if len(block) >= 5 and isinstance(block[4], str):
+                                block_text = block[4].strip()
+                                if block_text:
+                                    block_texts.append(block_text)
+                        if block_texts:
+                            text = "\n".join(block_texts)
+                    
                     if text.strip():
-                        text_content.append(f"=== 페이지 {page_num + 1} ===\\n{text}")
+                        text_content.append(f"=== 페이지 {page_num + 1} ===\n{text.strip()}")
+                    else:
+                        # 텍스트가 전혀 없는 경우 (이미지 PDF일 가능성)
+                        text_content.append(f"=== 페이지 {page_num + 1} ===\n[이 페이지에서 텍스트를 추출할 수 없습니다. 이미지나 스캔된 문서일 수 있습니다.]")
             
-            return "\\n\\n".join(text_content)
+            result_text = "\n\n".join(text_content)
+            return result_text if result_text.strip() else "PDF에서 텍스트를 추출할 수 없습니다."
             
         except Exception as e:
             return f"텍스트 추출 오류: {e}"
+    
+    def _extract_text_from_dict(self, text_dict: dict) -> str:
+        """
+        PyMuPDF의 딕셔너리 형태 텍스트 정보에서 텍스트를 추출합니다.
+        
+        Args:
+            text_dict (dict): page.get_text("dict")의 결과
+            
+        Returns:
+            str: 추출된 텍스트
+        """
+        text_parts = []
+        
+        try:
+            for block in text_dict.get("blocks", []):
+                if "lines" in block:
+                    for line in block["lines"]:
+                        line_text = ""
+                        for span in line.get("spans", []):
+                            span_text = span.get("text", "")
+                            if span_text.strip():
+                                line_text += span_text
+                        if line_text.strip():
+                            text_parts.append(line_text.strip())
+            
+            return "\n".join(text_parts)
+            
+        except Exception:
+            return ""
     
     def get_metadata(self, file_path: str) -> Dict[str, Any]:
         """

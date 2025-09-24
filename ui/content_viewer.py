@@ -61,6 +61,12 @@ class FileLoadWorker(QThread):
                 file_info['preview'] = self.file_manager.get_preview_data(self.file_path, slide=0)
                 file_info['text_sample'] = self.file_manager.extract_text(self.file_path)[:1000]
             
+            elif file_type == 'text':
+                # 텍스트 파일의 경우 미리보기 준비
+                text_handler = self.file_manager.handlers['text']
+                file_info['text_sample'] = text_handler.get_preview(self.file_path, max_lines=10)
+                file_info.update(text_handler.get_metadata(self.file_path))
+            
             self.load_completed.emit(file_info)
             
         except Exception as e:
@@ -174,7 +180,34 @@ class ContentViewer(QWidget):
         """)
         self.content_stack.addWidget(self.table_viewer)
         
-        # 6. 오류 페이지
+        # 6. 문서 뷰어 페이지 (원본 + 텍스트 탭)
+        self.document_viewer = QTabWidget()
+        
+        # 원본 탭 (PDF 렌더링, Word/PPT 이미지)
+        self.original_tab = QScrollArea()
+        self.original_label = QLabel()
+        self.original_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.original_label.setStyleSheet("background-color: white;")
+        self.original_tab.setWidget(self.original_label)
+        self.original_tab.setWidgetResizable(True)
+        self.document_viewer.addTab(self.original_tab, "📄 원본")
+        
+        # 텍스트 탭
+        self.doc_text_viewer = QTextEdit()
+        self.doc_text_viewer.setReadOnly(True)
+        self.doc_text_viewer.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: white;
+                border: 1px solid {config.UI_COLORS['secondary']};
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: {config.UI_FONTS['body_size']}px;
+                line-height: 1.4;
+            }}
+        """)
+        self.document_viewer.addTab(self.doc_text_viewer, "📝 텍스트")
+        self.content_stack.addWidget(self.document_viewer)
+        
+        # 7. 오류 페이지
         self.error_page = QLabel("❌\\n\\n파일을 로딩할 수 없습니다.")
         self.error_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.error_page.setStyleSheet(f"""
@@ -275,18 +308,25 @@ class ContentViewer(QWidget):
         elif file_type == 'excel':
             self.setup_excel_viewer(file_info)
         elif file_type in ['word', 'powerpoint']:
-            self.setup_text_viewer(file_info)
+            self.setup_document_viewer(file_info)
+        elif file_type == 'text':
+            self.setup_text_file_viewer(file_info)
         else:
             self.show_error("지원되지 않는 파일 형식입니다.")
     
     def setup_pdf_viewer(self, file_info: Dict[str, Any]):
         """PDF 뷰어를 설정합니다."""
-        text_content = file_info.get('text_sample', '')
+        # 원본 PDF 렌더링
+        self.render_pdf_page(self.current_file_path, 0)
         
-        if text_content and not text_content.startswith('PDF'):
-            self.text_viewer.setPlainText(text_content)
+        # 텍스트 탭 설정
+        text_content = file_info.get('text_sample', '')
+        if text_content and not text_content.startswith('텍스트 추출 오류'):
+            self.doc_text_viewer.setPlainText(text_content)
         else:
-            self.text_viewer.setPlainText(f"PDF 문서\\n\\n파일명: {file_info['filename']}\\n페이지 수: {file_info.get('page_count', 'N/A')}\\n\\n텍스트 추출이 제한적일 수 있습니다.")
+            # 전체 텍스트 추출 시도
+            full_text = self.file_manager.extract_text(self.current_file_path)
+            self.doc_text_viewer.setPlainText(full_text)
         
         # 페이지 네비게이션 설정
         page_count = file_info.get('page_count', 1)
@@ -302,6 +342,86 @@ class ContentViewer(QWidget):
         self.sheet_label.hide()
         self.sheet_combo.hide()
         
+        self.content_stack.setCurrentWidget(self.document_viewer)
+    
+    def render_pdf_page(self, file_path: str, page_num: int = 0):
+        """PDF 페이지를 이미지로 렌더링합니다."""
+        try:
+            pdf_handler = self.file_manager.handlers['pdf']
+            image = pdf_handler.render_page_to_image(file_path, page_num, zoom=1.5)
+            
+            if image:
+                # PIL Image를 QPixmap으로 변환
+                import io
+                buffer = io.BytesIO()
+                image.save(buffer, format='PNG')
+                buffer.seek(0)
+                
+                pixmap = QPixmap()
+                pixmap.loadFromData(buffer.getvalue())
+                
+                # 화면에 맞게 크기 조정
+                max_width = 800
+                if pixmap.width() > max_width:
+                    pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
+                
+                self.original_label.setPixmap(pixmap)
+            else:
+                self.original_label.setText("PDF 렌더링 실패")
+                
+        except Exception as e:
+            self.original_label.setText(f"PDF 렌더링 오류: {str(e)}")
+    
+    def setup_document_viewer(self, file_info: Dict[str, Any]):
+        """Word/PowerPoint 문서 뷰어를 설정합니다."""
+        # 원본 탭 - 현재는 텍스트로 표시 (향후 이미지 렌더링 추가 가능)
+        self.original_label.setText(f"""
+📄 {file_info['file_type'].upper()} 문서
+
+파일명: {file_info['filename']}
+크기: {file_info['file_size_mb']} MB
+
+원본 미리보기는 향후 버전에서 지원 예정입니다.
+현재는 텍스트 탭에서 내용을 확인하실 수 있습니다.
+        """)
+        
+        # 텍스트 탭 설정
+        text_content = file_info.get('text_sample', '')
+        if not text_content:
+            text_content = self.file_manager.extract_text(self.current_file_path)
+        
+        self.doc_text_viewer.setPlainText(text_content)
+        
+        # PowerPoint의 경우 슬라이드 네비게이션
+        if file_info['file_type'] == 'powerpoint':
+            slide_count = file_info.get('slide_count', 1)
+            if slide_count > 1:
+                self.page_spin.setMaximum(slide_count)
+                self.page_total_label.setText(f"/ {slide_count}")
+                self.page_label.setText("슬라이드:")
+                self.page_label.show()
+                self.page_spin.show()
+                self.page_total_label.show()
+                self.control_frame.show()
+        
+        # 시트 컨트롤 숨김
+        self.sheet_label.hide()
+        self.sheet_combo.hide()
+        
+        self.content_stack.setCurrentWidget(self.document_viewer)
+    
+    def setup_text_file_viewer(self, file_info: Dict[str, Any]):
+        """텍스트 파일 뷰어를 설정합니다."""
+        text_handler = self.file_manager.handlers['text']
+        content = text_handler.read_file_content(self.current_file_path)
+        
+        # 마크다운 파일의 경우 간단한 형식 표시
+        if self.current_file_path.lower().endswith('.md'):
+            self.text_viewer.setMarkdown(content)
+        else:
+            self.text_viewer.setPlainText(content)
+        
+        self.control_frame.hide()
         self.content_stack.setCurrentWidget(self.text_viewer)
     
     def setup_image_viewer(self, file_info: Dict[str, Any]):
@@ -413,9 +533,19 @@ class ContentViewer(QWidget):
         file_type = self.current_file_info.get('file_type')
         
         if file_type == 'pdf':
-            # PDF 페이지 변경 (실제 구현 시 PDF 핸들러 사용)
-            text_content = self.file_manager.extract_text(self.current_file_path, max_pages=1)
-            self.text_viewer.setPlainText(f"PDF 페이지 {page_num}\\n\\n{text_content}")
+            # PDF 페이지 변경 - 원본 이미지 렌더링
+            self.render_pdf_page(self.current_file_path, page_num - 1)
+            
+            # 해당 페이지의 텍스트도 업데이트
+            pdf_handler = self.file_manager.handlers['pdf']
+            try:
+                import fitz
+                with fitz.open(self.current_file_path) as doc:
+                    if page_num - 1 < len(doc):
+                        page_text = doc[page_num - 1].get_text()
+                        self.doc_text_viewer.setPlainText(f"=== 페이지 {page_num} ===\n\n{page_text}")
+            except Exception as e:
+                self.doc_text_viewer.setPlainText(f"페이지 {page_num} 텍스트 로딩 오류: {str(e)}")
         
         elif file_type == 'powerpoint':
             # PowerPoint 슬라이드 변경
