@@ -57,6 +57,7 @@ class SearchWidget(QWidget):
         self.indexer = SearchIndexer()
         self.indexing_worker = None
         self.current_directory = ""
+        self.current_selected_file = None  # 현재 선택된 파일 경로
         self.setup_ui()
         
         # 검색 지연 타이머 (타이핑 완료 후 검색)
@@ -157,11 +158,45 @@ class SearchWidget(QWidget):
         preview_layout = QVBoxLayout()
         preview_frame.setLayout(preview_layout)
         
+        # 미리보기 헤더
+        preview_header = QHBoxLayout()
+        
         preview_title = QLabel("미리보기")
         preview_title.setFont(QFont(config.UI_FONTS["font_family"], 
                                   config.UI_FONTS["subtitle_size"], 
                                   QFont.Weight.Bold))
-        preview_layout.addWidget(preview_title)
+        preview_header.addWidget(preview_title)
+        
+        preview_header.addStretch()
+        
+        # 원본 열기 버튼 (오른쪽 상단)
+        self.open_original_button = QPushButton("📂 원본 열기")
+        self.open_original_button.setFixedSize(100, 30)
+        self.open_original_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+            QPushButton:disabled {
+                background-color: #CCCCCC;
+                color: #666666;
+            }
+        """)
+        self.open_original_button.clicked.connect(self.open_original_file)
+        self.open_original_button.setEnabled(False)  # 기본적으로 비활성화
+        preview_header.addWidget(self.open_original_button)
+        
+        preview_layout.addLayout(preview_header)
         
         self.preview_text = QTextEdit()
         self.preview_text.setReadOnly(True)
@@ -362,6 +397,8 @@ class SearchWidget(QWidget):
         result = item.data(Qt.ItemDataRole.UserRole)
         
         if result:
+            self.current_selected_file = result['file_path']
+            
             # 미리보기 표시
             preview_text = f"파일: {result['filename']}\\n"
             preview_text += f"경로: {result['file_path']}\\n"
@@ -372,6 +409,9 @@ class SearchWidget(QWidget):
             preview_text += result.get('preview', '미리보기 없음')
             
             self.preview_text.setPlainText(preview_text)
+            
+            # 원본 열기 버튼 활성화
+            self.open_original_button.setEnabled(True)
             
             # 파일 선택 신호 발생
             self.file_selected.emit(result['file_path'])
@@ -404,3 +444,27 @@ class SearchWidget(QWidget):
             Dict[str, Any]: 통계 정보
         """
         return self.indexer.get_index_statistics()
+    
+    def open_original_file(self):
+        """선택된 파일을 기본 프로그램으로 엽니다."""
+        if not self.current_selected_file or not os.path.exists(self.current_selected_file):
+            return
+        
+        try:
+            import subprocess
+            import sys
+            
+            if sys.platform == "win32":
+                # Windows에서는 os.startfile 사용
+                os.startfile(self.current_selected_file)
+            elif sys.platform == "darwin":
+                # macOS에서는 open 명령 사용
+                subprocess.call(["open", self.current_selected_file])
+            else:
+                # Linux에서는 xdg-open 사용
+                subprocess.call(["xdg-open", self.current_selected_file])
+                
+            print(f"✅ 원본 파일 열기: {self.current_selected_file}")
+            
+        except Exception as e:
+            print(f"❌ 원본 파일 열기 실패: {e}")
