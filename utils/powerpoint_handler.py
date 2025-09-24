@@ -350,15 +350,24 @@ class PowerPointHandler:
             return None
             
         try:
-            # LibreOffice를 사용한 실제 슬라이드 렌더링 시도
+            # Windows COM 자동화 시도 (Windows + PowerPoint가 설치된 경우)
+            print(f"🔄 PowerPoint COM 자동화 시도: {file_path}")
+            com_image = self._render_slide_with_com(file_path, slide_number)
+            if com_image:
+                print(f"✅ PowerPoint COM 렌더링 성공! 원본 이미지 반환")
+                return com_image
+            else:
+                print("PowerPoint COM 렌더링 실패 또는 지원되지 않는 환경")
+            
+            # COM 실패 시 LibreOffice 시도
             print(f"🔄 LibreOffice 렌더링 시도: {file_path}")
             native_image = self._render_slide_with_libreoffice(file_path, slide_number)
             if native_image:
                 print(f"✅ LibreOffice 렌더링 성공! 원본 이미지 반환")
                 return native_image
             
-            # LibreOffice 실패 시 기존 방식으로 폴백
-            print(f"⚠️ LibreOffice 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 {slide_number})")
+            # 모든 원본 렌더링 실패 시 텍스트 기반으로 폴백
+            print(f"⚠️ 모든 원본 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 {slide_number})")
             
             prs = Presentation(file_path)
             
@@ -666,4 +675,115 @@ class PowerPointHandler:
             return None
         except Exception as e:
             print(f"LibreOffice rendering error: {e}")
+            return None
+    
+    def _render_slide_with_com(self, file_path: str, slide_number: int) -> Optional['Image.Image']:
+        """
+        Windows PowerPoint COM 자동화를 사용해서 슬라이드를 이미지로 렌더링합니다.
+        
+        Args:
+            file_path (str): PowerPoint 파일 경로
+            slide_number (int): 슬라이드 번호 (0부터 시작)
+            
+        Returns:
+            Optional[Image.Image]: 렌더링된 이미지 또는 None
+        """
+        if not PIL_AVAILABLE:
+            return None
+        
+        # Windows 플랫폼 체크
+        import sys
+        if sys.platform != 'win32':
+            print("PowerPoint COM은 Windows에서만 사용 가능합니다")
+            return None
+            
+        try:
+            # Windows COM 라이브러리 import
+            try:
+                import win32com.client
+                import pythoncom
+                import os
+                import tempfile
+                from pathlib import Path
+            except ImportError:
+                print("Windows COM 라이브러리를 찾을 수 없습니다 (pywin32 설치 필요: pip install pywin32)")
+                return None
+            
+            # COM 초기화 (멀티스레드 환경에서 필요)
+            pythoncom.CoInitialize()
+            
+            ppt_app = None
+            presentation = None
+            
+            try:
+                # PowerPoint 애플리케이션 시작
+                print("PowerPoint 애플리케이션 시작...")
+                ppt_app = win32com.client.Dispatch("PowerPoint.Application")
+                ppt_app.Visible = False  # 백그라운드에서 실행
+                
+                # PowerPoint 파일 열기
+                print(f"PowerPoint 파일 열기: {file_path}")
+                presentation = ppt_app.Presentations.Open(os.path.abspath(file_path), ReadOnly=True)
+                
+                # 슬라이드 수 확인
+                slide_count = presentation.Slides.Count
+                if slide_number >= slide_count or slide_number < 0:
+                    print(f"잘못된 슬라이드 번호: {slide_number} (총 {slide_count}개 슬라이드)")
+                    return None
+                
+                # 해당 슬라이드 가져오기 (PowerPoint는 1부터 시작)
+                slide = presentation.Slides(slide_number + 1)
+                
+                # 슬라이드 크기 확인 및 고해상도 계산
+                slide_width = presentation.PageSetup.SlideWidth  # 포인트 단위
+                slide_height = presentation.PageSetup.SlideHeight  # 포인트 단위
+                
+                # 고해상도 설정 (200 DPI 기준)
+                dpi = 200
+                width_px = int(slide_width * dpi / 72)  # 72 포인트 = 1인치
+                height_px = int(slide_height * dpi / 72)
+                
+                # 임시 디렉토리에 이미지로 내보내기
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_path = Path(temp_dir)
+                    image_path = temp_path / f"slide_{slide_number}.png"
+                    
+                    # 슬라이드를 고해상도 PNG로 내보내기
+                    print(f"슬라이드를 이미지로 내보내기: {image_path} ({width_px}x{height_px})")
+                    slide.Export(str(image_path), "PNG", width_px, height_px)
+                    
+                    # 내보낸 이미지 로딩
+                    if image_path.exists():
+                        image = Image.open(str(image_path))
+                        print(f"PowerPoint COM 렌더링 성공: {image.size}")
+                        return image
+                    else:
+                        print("이미지 파일이 생성되지 않았습니다")
+                        return None
+                        
+            except Exception as e:
+                print(f"PowerPoint COM 처리 오류: {e}")
+                return None
+                
+            finally:
+                # 리소스 정리 (순서 중요)
+                try:
+                    if presentation is not None:
+                        presentation.Close()
+                        print("프레젠테이션 닫기 완료")
+                except:
+                    pass
+                    
+                try:
+                    if ppt_app is not None:
+                        ppt_app.Quit()
+                        print("PowerPoint 애플리케이션 종료 완료")
+                except:
+                    pass
+                    
+                # COM 정리
+                pythoncom.CoUninitialize()
+                    
+        except Exception as e:
+            print(f"PowerPoint COM 자동화 전체 오류: {e}")
             return None

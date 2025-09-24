@@ -1,0 +1,48 @@
+🎯 PowerPoint 렌더링 시작: C:/Users/Administrator/Desktop/Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx, 슬라이드 0
+🔄 LibreOffice 렌더링 시도: C:/Users/Administrator/Desktop/Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx
+LibreOffice not found (tried 'libreoffice' and 'soffice')
+⚠️ LibreOffice 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 0)
+✅ LibreOffice 렌더링 성공! 이미지 크기: (800, 600)
+QPixmap 로딩 결과: True, 크기: 800x600
+🖼️ 이미지 표시 완료!
+🎯 PowerPoint 렌더링 시작: C:/Users/Administrator/Desktop/ppt양식.pptx, 슬라이드 0
+🔄 LibreOffice 렌더링 시도: C:/Users/Administrator/Desktop/ppt양식.pptx
+LibreOffice not found (tried 'libreoffice' and 'soffice')
+⚠️ LibreOffice 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 0)
+슬라이드 이미지 렌더링 오류 (C:/Users/Administrator/Desktop/ppt양식.pptx, 슬라이드 0): shape does not contain a chart
+❌ LibreOffice 렌더링 실패, 텍스트 기반 렌더링 사용됨
+🎯 PowerPoint 렌더링 시작: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx, 슬라이드 0
+🔄 LibreOffice 렌더링 시도: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx
+LibreOffice not found (tried 'libreoffice' and 'soffice')
+⚠️ LibreOffice 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 0)
+✅ LibreOffice 렌더링 성공! 이미지 크기: (800, 600)
+QPixmap 로딩 결과: True, 크기: 800x600
+🖼️ 이미지 표시 완료!
+🎯 PowerPoint 렌더링 시작: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx, 슬라이드 1
+🔄 LibreOffice 렌더링 시도: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx
+LibreOffice not found (tried 'libreoffice' and 'soffice')
+⚠️ LibreOffice 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 1)
+✅ LibreOffice 렌더링 성공! 이미지 크기: (800, 600)
+QPixmap 로딩 결과: True, 크기: 800x600
+🖼️ 이미지 표시 완료!
+🎯 PowerPoint 렌더링 시작: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx, 슬라이드 2
+🔄 LibreOffice 렌더링 시도: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx
+LibreOffice not found (tried 'libreoffice' and 'soffice')
+⚠️ LibreOffice 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 2)
+✅ LibreOffice 렌더링 성공! 이미지 크기: (800, 600)
+QPixmap 로딩 결과: True, 크기: 800x600
+🖼️ 이미지 표시 완료!
+🎯 PowerPoint 렌더링 시작: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx, 슬라이드 3
+🔄 LibreOffice 렌더링 시도: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx
+LibreOffice not found (tried 'libreoffice' and 'soffice')
+⚠️ LibreOffice 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 3)
+✅ LibreOffice 렌더링 성공! 이미지 크기: (800, 600)
+QPixmap 로딩 결과: True, 크기: 800x600
+🖼️ 이미지 표시 완료!
+🎯 PowerPoint 렌더링 시작: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx, 슬라이드 4
+🔄 LibreOffice 렌더링 시도: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx
+LibreOffice not found (tried 'libreoffice' and 'soffice')
+⚠️ LibreOffice 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 4)
+✅ LibreOffice 렌더링 성공! 이미지 크기: (800, 600)
+QPixmap 로딩 결과: True, 크기: 800x600
+🖼️ 이미지 표시 완료!
