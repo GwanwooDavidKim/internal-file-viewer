@@ -9,11 +9,9 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 import os
 import subprocess
 import tempfile
-import shutil
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import io
-import glob
 
 # PIL을 안전하게 import (Pillow가 없어도 텍스트 기능은 작동)
 try:
@@ -583,7 +581,6 @@ class PowerPointHandler:
                 temp_path = Path(temp_dir)
                 
                 # 1단계: PowerPoint를 PDF로 변환
-                pdf_path = temp_path / "presentation.pdf"
                 
                 # LibreOffice 바이너리 찾기 (libreoffice 또는 soffice)
                 libreoffice_cmd = None
@@ -636,9 +633,9 @@ class PowerPointHandler:
                     # 해당 슬라이드(페이지) 렌더링
                     page = doc.load_page(slide_number)
                     
-                    # 고해상도 매트릭스 (요청된 크기에 맞춰 조정)
-                    # 기본 150 DPI로 렌더링 (PDF 기본 72 DPI의 약 2배)
-                    scale_factor = max(1.5, min(3.0, width / 600))  # 최소 1.5x, 최대 3x
+                    # 고해상도 매트릭스 (기본 150 DPI로 렌더링)
+                    # PDF 기본 72 DPI의 약 2배로 고품질 렌더링
+                    scale_factor = 2.0
                     mat = fitz.Matrix(scale_factor, scale_factor)
                     pix = page.get_pixmap(matrix=mat)
                     
