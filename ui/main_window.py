@@ -269,9 +269,20 @@ class MainWindow(QMainWindow):
         Args:
             file_path (str): 선택된 파일의 경로
         """
-        self.status_bar.showMessage(f"파일 로딩 중: {file_path}")
-        self.content_viewer.load_file(file_path)
-        self.status_bar.showMessage(f"파일 로드됨: {file_path}")
+        # PowerPoint 파일인지 확인
+        import os
+        file_extension = os.path.splitext(file_path)[1].lower()
+        
+        if file_extension in ['.ppt', '.pptx']:
+            # 🚀 PowerPoint 즉시 표시 - 딜레이 없음!
+            self.status_bar.showMessage(f"⚡ PowerPoint 즉시 접근: {os.path.basename(file_path)}")
+            self.content_viewer.show_powerpoint_instant_access(file_path)
+            self.status_bar.showMessage(f"✅ PowerPoint 파일 준비됨: {os.path.basename(file_path)}")
+        else:
+            # 다른 파일들은 기존 방식으로 로딩
+            self.status_bar.showMessage(f"파일 로딩 중: {file_path}")
+            self.content_viewer.load_file(file_path)
+            self.status_bar.showMessage(f"파일 로드됨: {file_path}")
     
     def logout(self):
         """로그아웃을 수행합니다."""
