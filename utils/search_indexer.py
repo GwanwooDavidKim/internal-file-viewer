@@ -326,12 +326,18 @@ class SearchIndexer:
                     for file in files:
                         file_path = os.path.join(root, file)
                         if self.file_manager.is_supported_file(file_path):
-                            files_to_index.append(file_path)
+                            # 엑셀 파일은 인덱싱에서 제외 (성능상 이유)
+                            file_type = self.file_manager.get_file_type(file_path)
+                            if file_type != 'excel':
+                                files_to_index.append(file_path)
             else:
                 for item in os.listdir(directory_path):
                     file_path = os.path.join(directory_path, item)
                     if os.path.isfile(file_path) and self.file_manager.is_supported_file(file_path):
-                        files_to_index.append(file_path)
+                        # 엑셀 파일은 인덱싱에서 제외 (성능상 이유)
+                        file_type = self.file_manager.get_file_type(file_path)
+                        if file_type != 'excel':
+                            files_to_index.append(file_path)
             
             total_files = len(files_to_index)
             print(f"📄 인덱싱 대상 파일: {total_files}개")
@@ -390,6 +396,12 @@ class SearchIndexer:
         """
         try:
             if self.file_manager.is_supported_file(file_path):
+                # 엑셀 파일은 인덱싱에서 제외 (성능상 이유)
+                file_type = self.file_manager.get_file_type(file_path)
+                if file_type == 'excel':
+                    print(f"⚠️ 엑셀 파일은 인덱싱에서 제외됨: {file_path}")
+                    return
+                
                 file_info = self.file_manager.get_file_info(file_path)
                 
                 if file_info.get('supported', False):
