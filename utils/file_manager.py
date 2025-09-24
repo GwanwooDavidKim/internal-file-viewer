@@ -271,11 +271,12 @@ class FileManager:
             if file_type == 'pdf':
                 page_num = kwargs.get('page', 0)
                 return handler.get_page_preview_info(file_path, page_num)
+            
+            elif file_type == 'excel':
+                sheet_name = kwargs.get('sheet_name', None)
+                return handler.get_preview_data(file_path, sheet_name=sheet_name)
             elif file_type == 'image':
                 return handler.get_image_info(file_path)
-            elif file_type == 'excel':
-                sheet_name = kwargs.get('sheet_name')
-                return handler.read_sheet(file_path, sheet_name, max_rows=20, max_cols=10)
             elif file_type == 'word':
                 return {'structure': handler.get_document_structure(file_path)}
             elif file_type == 'powerpoint':

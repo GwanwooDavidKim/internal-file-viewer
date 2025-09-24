@@ -8,6 +8,15 @@ from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 import os
 from typing import List, Dict, Any, Optional
+import io
+
+# PIL을 안전하게 import (Pillow가 없어도 텍스트 기능은 작동)
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    print("Warning: Pillow not installed. PowerPoint image preview will not be available.")
 
 
 class PowerPointHandler:
@@ -319,3 +328,134 @@ class PowerPointHandler:
             
         except Exception as e:
             return [{'error': f"프레젠테이션 검색 오류: {e}"}]
+    
+    def render_slide_to_image(self, file_path: str, slide_number: int, width: int = 800, height: int = 600) -> Optional['Image.Image']:
+        """
+        슬라이드를 간단한 이미지로 렌더링합니다.
+        
+        Args:
+            file_path (str): PowerPoint 파일 경로
+            slide_number (int): 슬라이드 번호 (0부터 시작)
+            width (int): 이미지 너비
+            height (int): 이미지 높이
+            
+        Returns:
+            Optional[Image.Image]: 생성된 이미지 (실패 시 None)
+        """
+        if not PIL_AVAILABLE:
+            print(f"PIL not available. Cannot render slide {slide_number} from {file_path}")
+            return None
+            
+        try:
+            prs = Presentation(file_path)
+            
+            if slide_number >= len(prs.slides) or slide_number < 0:
+                return None
+            
+            slide = prs.slides[slide_number]
+            
+            # 빈 이미지 생성 (흰색 배경)
+            img = Image.new('RGB', (width, height), color='white')
+            draw = ImageDraw.Draw(img)
+            
+            # 기본 폰트 설정 (시스템에서 사용 가능한 폰트 사용)
+            try:
+                title_font = ImageFont.truetype("arial.ttf", 36)
+                text_font = ImageFont.truetype("arial.ttf", 24)
+                small_font = ImageFont.truetype("arial.ttf", 18)
+            except:
+                # 기본 폰트로 fallback
+                title_font = ImageFont.load_default()
+                text_font = ImageFont.load_default()
+                small_font = ImageFont.load_default()
+            
+            y_position = 50
+            margin = 40
+            
+            # 슬라이드 제목 렌더링
+            if slide.shapes.title and slide.shapes.title.text:
+                title_text = slide.shapes.title.text
+                # 제목을 여러 줄로 나누기 (너무 길면)
+                title_lines = self._wrap_text(title_text, width - 2*margin, title_font, draw)
+                
+                for line in title_lines:
+                    draw.text((margin, y_position), line, font=title_font, fill='black')
+                    y_position += 50
+                
+                # 제목 아래에 구분선
+                draw.line([(margin, y_position + 10), (width - margin, y_position + 10)], fill='gray', width=2)
+                y_position += 30
+            
+            # 슬라이드 내용 렌더링
+            content_items = []
+            
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text and shape != slide.shapes.title:
+                    content_items.append(shape.text)
+            
+            # 내용을 순서대로 렌더링
+            for item in content_items[:5]:  # 최대 5개 항목만 표시
+                if y_position > height - 100:  # 화면 하단 근처면 중단
+                    break
+                
+                # 텍스트를 여러 줄로 나누기
+                lines = self._wrap_text(item, width - 2*margin, text_font, draw)
+                
+                for line in lines[:3]:  # 각 항목당 최대 3줄
+                    if y_position > height - 50:
+                        break
+                    draw.text((margin, y_position), f"• {line}", font=text_font, fill='black')
+                    y_position += 30
+                
+                y_position += 15  # 항목 간 간격
+            
+            # 슬라이드 번호 표시
+            slide_info = f"슬라이드 {slide_number + 1} / {len(prs.slides)}"
+            draw.text((width - 200, height - 40), slide_info, font=small_font, fill='gray')
+            
+            return img
+            
+        except Exception as e:
+            print(f"슬라이드 이미지 렌더링 오류 ({file_path}, 슬라이드 {slide_number}): {e}")
+            return None
+    
+    def _wrap_text(self, text: str, max_width: int, font, draw) -> List[str]:
+        """
+        텍스트를 지정된 너비에 맞게 여러 줄로 나눕니다.
+        
+        Args:
+            text (str): 원본 텍스트
+            max_width (int): 최대 너비
+            font: 폰트 객체
+            draw: ImageDraw 객체
+            
+        Returns:
+            List[str]: 나뉜 텍스트 줄들
+        """
+        words = text.split()
+        lines = []
+        current_line = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            
+            try:
+                bbox = draw.textbbox((0, 0), test_line, font=font)
+                text_width = bbox[2] - bbox[0]
+            except:
+                # textbbox가 없는 경우 textsize 사용 (구버전 호환)
+                text_width = draw.textsize(test_line, font=font)[0]
+            
+            if text_width <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                    current_line = [word]
+                else:
+                    lines.append(word)  # 단어가 너무 긴 경우
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        return lines

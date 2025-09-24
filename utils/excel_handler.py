@@ -24,8 +24,9 @@ class ExcelHandler:
     def __init__(self):
         """ExcelHandler 인스턴스를 초기화합니다."""
         self.supported_extensions = ['.xlsx', '.xlsm']  # .xls, .xlsb는 추가 엔진 필요
-        self.max_rows = 1000  # 표시할 최대 행 수
-        self.max_cols = 50    # 표시할 최대 열 수
+        self.max_rows = 100   # 표시할 최대 행 수 (성능 최적화)
+        self.max_cols = 20    # 표시할 최대 열 수 (성능 최적화)
+        self.preview_rows = 50  # 미리보기용 더 적은 행 수
     
     def can_handle(self, file_path: str) -> bool:
         """
@@ -118,6 +119,19 @@ class ExcelHandler:
                 'row_count': 0,
                 'col_count': 0,
             }
+    
+    def get_preview_data(self, file_path: str, sheet_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Excel 파일의 미리보기 데이터를 반환합니다. (빠른 로딩을 위해 최적화)
+        
+        Args:
+            file_path (str): Excel 파일 경로
+            sheet_name (Optional[str]): 시트 이름 (None이면 첫 번째 시트)
+            
+        Returns:
+            Dict[str, Any]: 미리보기 데이터
+        """
+        return self.read_sheet(file_path, sheet_name, max_rows=self.preview_rows, max_cols=self.max_cols)
     
     def get_sheet_info(self, file_path: str, sheet_name: str) -> Dict[str, Any]:
         """

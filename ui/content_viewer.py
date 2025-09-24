@@ -39,7 +39,9 @@ class FileLoadWorker(QThread):
                 self.load_error.emit("지원되지 않는 파일 형식입니다.")
                 return
             
-            file_type = file_info.get('file_type')
+            # FileManager의 get_file_type() 결과를 사용 (text, pdf, word 등)
+            file_type = self.file_manager.get_file_type(self.file_path)
+            file_info['file_type'] = file_type  # 올바른 파일 타입으로 덮어쓰기
             
             # 파일 타입별 추가 데이터 로딩
             if file_type == 'pdf':
@@ -374,16 +376,22 @@ class ContentViewer(QWidget):
     
     def setup_document_viewer(self, file_info: Dict[str, Any]):
         """Word/PowerPoint 문서 뷰어를 설정합니다."""
-        # 원본 탭 - 현재는 텍스트로 표시 (향후 이미지 렌더링 추가 가능)
-        self.original_label.setText(f"""
-📄 {file_info['file_type'].upper()} 문서
+        file_type = file_info['file_type']
+        
+        if file_type == 'powerpoint':
+            # PowerPoint 슬라이드 이미지 렌더링
+            self.render_powerpoint_slide(self.current_file_path, 0)
+        else:
+            # Word 문서는 텍스트 미리보기
+            self.original_label.setText(f"""
+📄 {file_type.upper()} 문서
 
 파일명: {file_info['filename']}
 크기: {file_info['file_size_mb']} MB
 
 원본 미리보기는 향후 버전에서 지원 예정입니다.
 현재는 텍스트 탭에서 내용을 확인하실 수 있습니다.
-        """)
+            """)
         
         # 텍스트 탭 설정
         text_content = file_info.get('text_sample', '')
@@ -393,7 +401,7 @@ class ContentViewer(QWidget):
         self.doc_text_viewer.setPlainText(text_content)
         
         # PowerPoint의 경우 슬라이드 네비게이션
-        if file_info['file_type'] == 'powerpoint':
+        if file_type == 'powerpoint':
             slide_count = file_info.get('slide_count', 1)
             if slide_count > 1:
                 self.page_spin.setMaximum(slide_count)
@@ -409,6 +417,45 @@ class ContentViewer(QWidget):
         self.sheet_combo.hide()
         
         self.content_stack.setCurrentWidget(self.document_viewer)
+    
+    def render_powerpoint_slide(self, file_path: str, slide_num: int = 0):
+        """PowerPoint 슬라이드를 이미지로 렌더링합니다."""
+        try:
+            ppt_handler = self.file_manager.handlers['powerpoint']
+            image = ppt_handler.render_slide_to_image(file_path, slide_num, width=800, height=600)
+            
+            if image:
+                # PIL Image를 QPixmap으로 변환
+                import io
+                buffer = io.BytesIO()
+                image.save(buffer, format='PNG')
+                buffer.seek(0)
+                
+                pixmap = QPixmap()
+                pixmap.loadFromData(buffer.getvalue())
+                
+                # 화면에 맞게 크기 조정
+                max_width = 800
+                if pixmap.width() > max_width:
+                    pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
+                
+                self.original_label.setPixmap(pixmap)
+            else:
+                self.original_label.setText("슬라이드 렌더링 실패")
+                
+        except Exception as e:
+            # Pillow가 없는 경우 안내 메시지 표시
+            if "PIL" in str(e) or "Pillow" in str(e):
+                self.original_label.setText("""
+PowerPoint 슬라이드 미리보기를 위해 Pillow 라이브러리가 필요합니다.
+
+설치 방법:
+pip install Pillow
+
+현재는 텍스트 탭에서 슬라이드 내용을 확인하실 수 있습니다.
+                """)
+            else:
+                self.original_label.setText(f"슬라이드 렌더링 오류: {str(e)}")
     
     def setup_text_file_viewer(self, file_info: Dict[str, Any]):
         """텍스트 파일 뷰어를 설정합니다."""
@@ -548,19 +595,27 @@ class ContentViewer(QWidget):
                 self.doc_text_viewer.setPlainText(f"페이지 {page_num} 텍스트 로딩 오류: {str(e)}")
         
         elif file_type == 'powerpoint':
-            # PowerPoint 슬라이드 변경
-            preview_data = self.file_manager.get_preview_data(self.current_file_path, slide=page_num-1)
-            if 'full_text' in preview_data:
-                self.text_viewer.setPlainText(preview_data['full_text'])
+            # PowerPoint 슬라이드 변경 - 원본 이미지와 텍스트 모두 업데이트
+            self.render_powerpoint_slide(self.current_file_path, page_num - 1)
+            
+            # 해당 슬라이드의 텍스트도 업데이트
+            ppt_handler = self.file_manager.handlers['powerpoint']
+            slide_data = ppt_handler.extract_text_from_slide(self.current_file_path, page_num - 1)
+            if 'full_text' in slide_data:
+                self.doc_text_viewer.setPlainText(f"=== 슬라이드 {page_num} ===\n\n{slide_data['full_text']}")
+            else:
+                self.doc_text_viewer.setPlainText(f"슬라이드 {page_num} 텍스트 로딩 오류")
     
     def on_sheet_changed(self, sheet_name: str):
         """시트 변경 시 호출됩니다."""
         if not self.current_file_path or not sheet_name:
             return
         
-        # Excel 시트 변경
-        preview_data = self.file_manager.get_preview_data(self.current_file_path, sheet_name=sheet_name)
+        # Excel 시트 변경 - 직접 엑셀 핸들러 사용
+        excel_handler = self.file_manager.handlers['excel']
+        preview_data = excel_handler.get_preview_data(self.current_file_path, sheet_name=sheet_name)
         self.current_file_info['preview'] = preview_data
+        self.current_file_info['current_sheet'] = sheet_name
         self.setup_excel_viewer(self.current_file_info)
     
     def clear(self):
