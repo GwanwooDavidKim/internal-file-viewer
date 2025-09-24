@@ -358,13 +358,40 @@ class PowerPointHandler:
             img = Image.new('RGB', (width, height), color='white')
             draw = ImageDraw.Draw(img)
             
-            # 기본 폰트 설정 (시스템에서 사용 가능한 폰트 사용)
-            try:
-                title_font = ImageFont.truetype("arial.ttf", 36)
-                text_font = ImageFont.truetype("arial.ttf", 24)
-                small_font = ImageFont.truetype("arial.ttf", 18)
-            except:
-                # 기본 폰트로 fallback
+            # 한글 지원 폰트 설정 (시스템에서 사용 가능한 폰트 사용)
+            korean_fonts = [
+                # Windows 폰트
+                "malgun.ttf",  # 맑은 고딕
+                "gulim.ttc",   # 굴림
+                "batang.ttc",  # 바탕
+                # macOS 폰트
+                "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+                "/Library/Fonts/Arial Unicode MS.ttf",
+                # Linux 폰트
+                "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                # 기본 폰트
+                "arial.ttf",
+                "DejaVuSans.ttf"
+            ]
+            
+            title_font = None
+            text_font = None
+            small_font = None
+            
+            # 사용 가능한 폰트 찾기
+            for font_path in korean_fonts:
+                try:
+                    title_font = ImageFont.truetype(font_path, 36)
+                    text_font = ImageFont.truetype(font_path, 24)
+                    small_font = ImageFont.truetype(font_path, 18)
+                    break
+                except:
+                    continue
+            
+            # 폰트를 찾지 못한 경우 기본 폰트 사용
+            if not title_font:
                 title_font = ImageFont.load_default()
                 text_font = ImageFont.load_default()
                 small_font = ImageFont.load_default()
@@ -412,6 +439,10 @@ class PowerPointHandler:
             # 슬라이드 번호 표시
             slide_info = f"슬라이드 {slide_number + 1} / {len(prs.slides)}"
             draw.text((width - 200, height - 40), slide_info, font=small_font, fill='gray')
+            
+            # 폰트 경고 메시지 (개발용)
+            if title_font == ImageFont.load_default():
+                print("Warning: 한글 폰트를 찾을 수 없어 기본 폰트를 사용합니다. 한글이 깨져 보일 수 있습니다.")
             
             return img
             

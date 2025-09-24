@@ -41,7 +41,8 @@ class FileLoadWorker(QThread):
             
             # FileManager의 get_file_type() 결과를 사용 (text, pdf, word 등)
             file_type = self.file_manager.get_file_type(self.file_path)
-            file_info['file_type'] = file_type  # 올바른 파일 타입으로 덮어쓰기
+            if file_type:  # None이 아닌 경우에만 덮어쓰기
+                file_info['file_type'] = file_type
             
             # 파일 타입별 추가 데이터 로딩
             if file_type == 'pdf':
@@ -521,8 +522,19 @@ pip install Pillow
             # 시트 선택 설정
             sheet_names = file_info.get('sheet_names', [])
             if len(sheet_names) > 1:
+                # 시그널 연결 해제 후 설정
+                self.sheet_combo.currentTextChanged.disconnect()
                 self.sheet_combo.clear()
                 self.sheet_combo.addItems(sheet_names)
+                
+                # 현재 시트 선택
+                current_sheet = file_info.get('current_sheet')
+                if current_sheet and current_sheet in sheet_names:
+                    self.sheet_combo.setCurrentText(current_sheet)
+                
+                # 시그널 다시 연결
+                self.sheet_combo.currentTextChanged.connect(self.on_sheet_changed)
+                
                 self.sheet_label.show()
                 self.sheet_combo.show()
                 self.control_frame.show()
@@ -611,12 +623,53 @@ pip install Pillow
         if not self.current_file_path or not sheet_name:
             return
         
-        # Excel 시트 변경 - 직접 엑셀 핸들러 사용
-        excel_handler = self.file_manager.handlers['excel']
-        preview_data = excel_handler.get_preview_data(self.current_file_path, sheet_name=sheet_name)
-        self.current_file_info['preview'] = preview_data
-        self.current_file_info['current_sheet'] = sheet_name
-        self.setup_excel_viewer(self.current_file_info)
+        # 현재 시트와 같으면 무시 (무한 루프 방지)
+        if self.current_file_info.get('current_sheet') == sheet_name:
+            return
+        
+        try:
+            # Excel 시트 변경 - 직접 엑셀 핸들러 사용
+            excel_handler = self.file_manager.handlers['excel']
+            preview_data = excel_handler.get_preview_data(self.current_file_path, sheet_name=sheet_name)
+            
+            if preview_data and 'data' in preview_data:
+                self.current_file_info['preview'] = preview_data
+                self.current_file_info['current_sheet'] = sheet_name
+                
+                # 테이블만 업데이트 (시트 콤보박스는 건드리지 않음)
+                self.update_excel_table(preview_data)
+            else:
+                self.show_error(f"시트 '{sheet_name}' 로딩 실패")
+                
+        except Exception as e:
+            self.show_error(f"시트 변경 오류: {str(e)}")
+    
+    def update_excel_table(self, preview_data: Dict[str, Any]):
+        """Excel 테이블만 업데이트합니다."""
+        try:
+            if 'data' in preview_data and preview_data['data']:
+                # 테이블 설정
+                data = preview_data['data']
+                columns = preview_data['columns']
+                
+                self.table_viewer.setRowCount(len(data))
+                self.table_viewer.setColumnCount(len(columns))
+                self.table_viewer.setHorizontalHeaderLabels(columns)
+                
+                # 데이터 채우기
+                for row_idx, row_data in enumerate(data):
+                    for col_idx, col_name in enumerate(columns):
+                        value = str(row_data.get(col_name, ''))
+                        item = QTableWidgetItem(value)
+                        self.table_viewer.setItem(row_idx, col_idx, item)
+                
+                # 열 크기 자동 조정
+                self.table_viewer.resizeColumnsToContents()
+            else:
+                self.table_viewer.setRowCount(0)
+                self.table_viewer.setColumnCount(0)
+        except Exception as e:
+            print(f"테이블 업데이트 오류: {e}")
     
     def clear(self):
         """뷰어를 초기화합니다."""

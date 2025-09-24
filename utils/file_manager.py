@@ -127,7 +127,7 @@ class FileManager:
                             detail_info = handler.get_document_info(file_path)
                         elif basic_info['file_type'] == 'powerpoint':
                             detail_info = handler.get_presentation_info(file_path)
-                        elif basic_info['file_type'] == 'text':
+                        elif basic_info['file_type'] in ['text', 'Plain Text', 'Markdown', 'Log File', 'Text File']:
                             detail_info = handler.get_metadata(file_path)
                         else:
                             detail_info = {}
