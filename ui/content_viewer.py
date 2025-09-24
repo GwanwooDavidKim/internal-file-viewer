@@ -435,13 +435,23 @@ class ContentViewer(QWidget):
         
         self.doc_text_viewer.setPlainText(text_content)
         
-        # PowerPoint의 경우 슬라이드 정보만 표시 (네비게이션 없음)
+        # PowerPoint의 경우 슬라이드 네비게이션 표시 (텍스트 탭용)
         if file_type == 'powerpoint':
             slide_count = file_info.get('slide_count', 1)
             # 슬라이드 수 정보를 텍스트에 추가
             current_text = self.original_label.text()
             updated_text = current_text.replace('크기:', f'슬라이드 수: {slide_count}개\n크기:')
             self.original_label.setText(updated_text)
+            
+            # 슬라이드가 여러 개인 경우 네비게이션 컨트롤 표시
+            if slide_count > 1:
+                self.page_spin.setMaximum(slide_count)
+                self.page_total_label.setText(f"/ {slide_count}")
+                self.page_label.setText("슬라이드:")
+                self.page_label.show()
+                self.page_spin.show()
+                self.page_total_label.show()
+                self.control_frame.show()
         
         # 시트 컨트롤 숨김
         self.sheet_label.hide()
