@@ -36,6 +36,9 @@ class PowerPointHandler:
     def __init__(self):
         """PowerPointHandler 인스턴스를 초기화합니다."""
         self.supported_extensions = ['.pptx']  # .ppt는 python-pptx에서 지원하지 않음
+        self.slide_cache = {}  # 파일별 슬라이드 이미지 캐시
+        self.cache_directory = Path(tempfile.gettempdir()) / "ppt_viewer_cache"
+        self.cache_directory.mkdir(exist_ok=True)
     
     def can_handle(self, file_path: str) -> bool:
         """
@@ -348,6 +351,12 @@ class PowerPointHandler:
         if not PIL_AVAILABLE:
             print(f"PIL not available. Cannot render slide {slide_number} from {file_path}")
             return None
+        
+        # 캐시에서 우선 확인
+        cached_image = self.get_cached_slide(file_path, slide_number)
+        if cached_image:
+            print(f"💾 캐시된 슬라이드 {slide_number} 이미지 사용 - 즉시 반환!")
+            return cached_image
             
         try:
             # Windows COM 자동화 시도 (Windows + PowerPoint가 설치된 경우)
@@ -758,11 +767,12 @@ class PowerPointHandler:
                 width_px = int(slide_width * dpi / 72)  # 72 포인트 = 1인치
                 height_px = int(slide_height * dpi / 72)
                 
-                # 임시 디렉토리에 이미지로 내보내기
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    temp_path = Path(temp_dir)
-                    image_path = temp_path / f"slide_{slide_number}.png"
-                    
+                # 안전한 임시 파일 경로 생성 (8.3 형식 문제 해결)
+                import time
+                safe_filename = f"slide_{slide_number}_{int(time.time() * 1000)}.png"
+                image_path = self.cache_directory / safe_filename
+                
+                try:
                     # 슬라이드를 고해상도 PNG로 내보내기
                     print(f"슬라이드를 이미지로 내보내기: {image_path} ({width_px}x{height_px})")
                     slide.Export(str(image_path), "PNG", width_px, height_px)
@@ -771,10 +781,20 @@ class PowerPointHandler:
                     if image_path.exists():
                         image = Image.open(str(image_path))
                         print(f"PowerPoint COM 렌더링 성공: {image.size}")
+                        
+                        # 임시 파일 정리
+                        try:
+                            image_path.unlink()
+                        except:
+                            pass
+                            
                         return image
                     else:
                         print("이미지 파일이 생성되지 않았습니다")
                         return None
+                except Exception as export_error:
+                    print(f"슬라이드 Export 오류: {export_error}")
+                    return None
                         
             except Exception as e:
                 print(f"PowerPoint COM 처리 오류: {e}")
@@ -802,3 +822,179 @@ class PowerPointHandler:
         except Exception as e:
             print(f"PowerPoint COM 자동화 전체 오류: {e}")
             return None
+    
+    def render_all_slides_batch(self, file_path: str) -> Dict[int, 'Image.Image']:
+        """
+        PowerPoint 파일의 모든 슬라이드를 한 번에 이미지로 렌더링합니다.
+        (깜빡임 없이 빠른 슬라이드 전환을 위한 배치 처리)
+        
+        Args:
+            file_path (str): PowerPoint 파일 경로
+            
+        Returns:
+            Dict[int, Image.Image]: {슬라이드번호: 이미지} 딕셔너리
+        """
+        if not PIL_AVAILABLE:
+            return {}
+        
+        # 캐시 키 생성
+        import hashlib
+        file_stat = os.stat(file_path)
+        cache_key = f"{file_path}_{file_stat.st_mtime}_{file_stat.st_size}"
+        
+        # 이미 캐시된 경우 반환
+        if cache_key in self.slide_cache:
+            print("💾 캐시된 슬라이드 이미지 사용")
+            return self.slide_cache[cache_key]
+        
+        print(f"🚀 PowerPoint 배치 렌더링 시작: {file_path}")
+        rendered_slides = {}
+        
+        # Windows 플랫폼 체크
+        import sys
+        if sys.platform != 'win32':
+            print("PowerPoint COM은 Windows에서만 사용 가능합니다")
+            return {}
+            
+        try:
+            # Windows COM 라이브러리 import
+            try:
+                import win32com.client
+                import pythoncom
+                import os
+                import tempfile
+                from pathlib import Path
+            except ImportError:
+                print("Windows COM 라이브러리를 찾을 수 없습니다 (pywin32 설치 필요: pip install pywin32)")
+                return {}
+            
+            # COM 초기화
+            pythoncom.CoInitialize()
+            
+            ppt_app = None
+            presentation = None
+            
+            try:
+                # PowerPoint 애플리케이션 시작
+                print("PowerPoint 애플리케이션 시작 (배치 모드)...")
+                ppt_app = win32com.client.Dispatch("PowerPoint.Application")
+                
+                # Visible 설정
+                try:
+                    ppt_app.Visible = False
+                    print("PowerPoint 숨김 모드로 실행")
+                except Exception as e:
+                    print(f"숨김 모드 실패, 보이는 모드로 실행: {e}")
+                    ppt_app.Visible = True
+                    
+                    # 사용자 방해 최소화
+                    try:
+                        ppt_app.DisplayAlerts = 0
+                        ppt_app.WindowState = 2
+                        print("PowerPoint 창 최소화 및 알림 비활성화")
+                    except:
+                        pass
+                
+                # PowerPoint 파일 열기
+                print(f"PowerPoint 파일 열기: {file_path}")
+                presentation = ppt_app.Presentations.Open(os.path.abspath(file_path), ReadOnly=True)
+                
+                # 슬라이드 수 확인
+                slide_count = presentation.Slides.Count
+                print(f"📄 총 {slide_count}개 슬라이드 배치 렌더링 시작")
+                
+                # 슬라이드 크기 확인
+                slide_width = presentation.PageSetup.SlideWidth
+                slide_height = presentation.PageSetup.SlideHeight
+                
+                # 고해상도 설정
+                dpi = 200
+                width_px = int(slide_width * dpi / 72)
+                height_px = int(slide_height * dpi / 72)
+                
+                # 모든 슬라이드 배치 렌더링
+                for slide_idx in range(slide_count):
+                    try:
+                        slide = presentation.Slides(slide_idx + 1)
+                        
+                        # 안전한 임시 파일 경로
+                        import time
+                        safe_filename = f"batch_slide_{slide_idx}_{int(time.time() * 1000)}.png"
+                        image_path = self.cache_directory / safe_filename
+                        
+                        # 슬라이드 내보내기
+                        print(f"📸 슬라이드 {slide_idx + 1}/{slide_count} 렌더링...")
+                        slide.Export(str(image_path), "PNG", width_px, height_px)
+                        
+                        # 이미지 로딩 및 저장
+                        if image_path.exists():
+                            image = Image.open(str(image_path))
+                            rendered_slides[slide_idx] = image
+                            
+                            # 임시 파일 정리
+                            try:
+                                image_path.unlink()
+                            except:
+                                pass
+                        else:
+                            print(f"⚠️ 슬라이드 {slide_idx} 이미지 생성 실패")
+                            
+                    except Exception as slide_error:
+                        print(f"❌ 슬라이드 {slide_idx} 렌더링 오류: {slide_error}")
+                        continue
+                
+                # 캐시에 저장
+                self.slide_cache[cache_key] = rendered_slides
+                print(f"✅ 배치 렌더링 완료! {len(rendered_slides)}개 슬라이드 캐시됨")
+                
+                return rendered_slides
+                        
+            except Exception as e:
+                print(f"PowerPoint 배치 렌더링 오류: {e}")
+                return {}
+                
+            finally:
+                # 리소스 정리
+                try:
+                    if presentation is not None:
+                        presentation.Close()
+                        print("프레젠테이션 닫기 완료")
+                except:
+                    pass
+                    
+                try:
+                    if ppt_app is not None:
+                        ppt_app.Quit()
+                        print("PowerPoint 애플리케이션 종료 완료")
+                except:
+                    pass
+                    
+                # COM 정리
+                pythoncom.CoUninitialize()
+                    
+        except Exception as e:
+            print(f"PowerPoint 배치 렌더링 전체 오류: {e}")
+            return {}
+    
+    def get_cached_slide(self, file_path: str, slide_number: int) -> Optional['Image.Image']:
+        """
+        캐시에서 슬라이드 이미지를 가져옵니다.
+        
+        Args:
+            file_path (str): PowerPoint 파일 경로
+            slide_number (int): 슬라이드 번호 (0부터 시작)
+            
+        Returns:
+            Optional[Image.Image]: 캐시된 이미지 또는 None
+        """
+        try:
+            file_stat = os.stat(file_path)
+            cache_key = f"{file_path}_{file_stat.st_mtime}_{file_stat.st_size}"
+            
+            if cache_key in self.slide_cache and slide_number in self.slide_cache[cache_key]:
+                return self.slide_cache[cache_key][slide_number]
+                
+        except Exception as e:
+            print(f"캐시 확인 오류: {e}")
+            
+        return None

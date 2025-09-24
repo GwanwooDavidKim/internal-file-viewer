@@ -380,7 +380,9 @@ class ContentViewer(QWidget):
         file_type = file_info['file_type']
         
         if file_type == 'powerpoint':
-            # PowerPoint 슬라이드 이미지 렌더링
+            # PowerPoint 배치 렌더링 시작 (백그라운드)
+            self.start_powerpoint_batch_rendering(self.current_file_path)
+            # 첫 번째 슬라이드 즉시 표시
             self.render_powerpoint_slide(self.current_file_path, 0)
         else:
             # Word 문서는 텍스트 미리보기
@@ -419,8 +421,42 @@ class ContentViewer(QWidget):
         
         self.content_stack.setCurrentWidget(self.document_viewer)
     
+    def start_powerpoint_batch_rendering(self, file_path: str):
+        """PowerPoint 배치 렌더링을 백그라운드에서 시작합니다."""
+        from PyQt6.QtCore import QThread, pyqtSignal
+        
+        class BatchRenderWorker(QThread):
+            progress_updated = pyqtSignal(str)  # 진행상황 신호
+            
+            def __init__(self, file_path, ppt_handler):
+                super().__init__()
+                self.file_path = file_path
+                self.ppt_handler = ppt_handler
+                
+            def run(self):
+                try:
+                    self.progress_updated.emit("🚀 모든 슬라이드 배치 렌더링 중...")
+                    slides = self.ppt_handler.render_all_slides_batch(self.file_path)
+                    if slides:
+                        self.progress_updated.emit(f"✅ {len(slides)}개 슬라이드 렌더링 완료! 빠른 전환 준비됨")
+                    else:
+                        self.progress_updated.emit("⚠️ 배치 렌더링 실패, 개별 렌더링 사용")
+                except Exception as e:
+                    self.progress_updated.emit(f"❌ 배치 렌더링 오류: {e}")
+        
+        # 배치 렌더링 작업자 시작
+        ppt_handler = self.file_manager.handlers['powerpoint']
+        self.batch_worker = BatchRenderWorker(file_path, ppt_handler)
+        self.batch_worker.progress_updated.connect(self.update_batch_progress)
+        self.batch_worker.start()
+        
+    def update_batch_progress(self, message: str):
+        """배치 렌더링 진행상황을 업데이트합니다."""
+        print(message)
+        # 상태바나 원하는 곳에 메시지 표시 가능
+        
     def render_powerpoint_slide(self, file_path: str, slide_num: int = 0):
-        """PowerPoint 슬라이드를 이미지로 렌더링합니다."""
+        """PowerPoint 슬라이드를 이미지로 렌더링합니다. (캐시 우선 사용)"""
         try:
             print(f"🎯 PowerPoint 렌더링 시작: {file_path}, 슬라이드 {slide_num}")
             ppt_handler = self.file_manager.handlers['powerpoint']
