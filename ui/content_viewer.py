@@ -422,10 +422,12 @@ class ContentViewer(QWidget):
     def render_powerpoint_slide(self, file_path: str, slide_num: int = 0):
         """PowerPoint 슬라이드를 이미지로 렌더링합니다."""
         try:
+            print(f"🎯 PowerPoint 렌더링 시작: {file_path}, 슬라이드 {slide_num}")
             ppt_handler = self.file_manager.handlers['powerpoint']
             image = ppt_handler.render_slide_to_image(file_path, slide_num, width=800, height=600)
             
             if image:
+                print(f"✅ LibreOffice 렌더링 성공! 이미지 크기: {image.size}")
                 # PIL Image를 QPixmap으로 변환
                 import io
                 buffer = io.BytesIO()
@@ -433,18 +435,26 @@ class ContentViewer(QWidget):
                 buffer.seek(0)
                 
                 pixmap = QPixmap()
-                pixmap.loadFromData(buffer.getvalue())
+                success = pixmap.loadFromData(buffer.getvalue())
+                print(f"QPixmap 로딩 결과: {success}, 크기: {pixmap.width()}x{pixmap.height()}")
                 
-                # 화면에 맞게 크기 조정
-                max_width = 800
-                if pixmap.width() > max_width:
-                    pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
-                
-                self.original_label.setPixmap(pixmap)
+                if success and not pixmap.isNull():
+                    # 화면에 맞게 크기 조정
+                    max_width = 800
+                    if pixmap.width() > max_width:
+                        pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
+                    
+                    self.original_label.setPixmap(pixmap)
+                    print("🖼️ 이미지 표시 완료!")
+                else:
+                    print("❌ QPixmap 변환 실패")
+                    self.original_label.setText("이미지 변환 실패")
             else:
-                self.original_label.setText("슬라이드 렌더링 실패")
+                print("❌ LibreOffice 렌더링 실패, 텍스트 기반 렌더링 사용됨")
+                self.original_label.setText("슬라이드 렌더링 실패 - LibreOffice 변환 오류")
                 
         except Exception as e:
+            print(f"❌ PowerPoint 렌더링 예외: {e}")
             # Pillow가 없는 경우 안내 메시지 표시
             if "PIL" in str(e) or "Pillow" in str(e):
                 self.original_label.setText("""

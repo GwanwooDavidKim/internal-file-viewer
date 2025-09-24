@@ -351,12 +351,14 @@ class PowerPointHandler:
             
         try:
             # LibreOffice를 사용한 실제 슬라이드 렌더링 시도
+            print(f"🔄 LibreOffice 렌더링 시도: {file_path}")
             native_image = self._render_slide_with_libreoffice(file_path, slide_number)
             if native_image:
+                print(f"✅ LibreOffice 렌더링 성공! 원본 이미지 반환")
                 return native_image
             
             # LibreOffice 실패 시 기존 방식으로 폴백
-            print(f"LibreOffice rendering failed, falling back to text-based rendering for slide {slide_number}")
+            print(f"⚠️ LibreOffice 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 {slide_number})")
             
             prs = Presentation(file_path)
             
@@ -605,12 +607,16 @@ class PowerPointHandler:
                     file_path
                 ]
                 
+                print(f"🔄 LibreOffice 명령 실행: {' '.join(cmd)}")
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
                 if result.returncode != 0:
-                    print(f"LibreOffice PDF conversion failed (cmd: {libreoffice_cmd})")
+                    print(f"❌ LibreOffice PDF conversion failed (cmd: {libreoffice_cmd})")
+                    print(f"Return code: {result.returncode}")
                     print(f"stderr: {result.stderr}")
                     print(f"stdout: {result.stdout}")
                     return None
+                else:
+                    print(f"✅ LibreOffice PDF 변환 성공")
                 
                 # 생성된 PDF 파일 찾기
                 pdf_files = list(temp_path.glob("*.pdf"))
