@@ -1,0 +1,35 @@
+🎯 PowerPoint 렌더링 시작: C:/Users/Administrator/Desktop/Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx, 슬라이드 0
+🔄 PowerPoint COM 자동화 시도: C:/Users/Administrator/Desktop/Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx
+PowerPoint 애플리케이션 시작...
+PowerPoint COM 처리 오류: (-2147352567, '예외가 발생했습니다.', (0, 'Microsoft PowerPoint 2016', 'Application.Visible : Invalid request.  Hiding the application window is not allowed.', '', 0, -2147188160), None)
+PowerPoint 애플리케이션 종료 완료
+PowerPoint COM 렌더링 실패 또는 지원되지 않는 환경
+🔄 LibreOffice 렌더링 시도: C:/Users/Administrator/Desktop/Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx
+LibreOffice not found (tried 'libreoffice' and 'soffice')
+⚠️ 모든 원본 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 0)
+✅ LibreOffice 렌더링 성공! 이미지 크기: (800, 600)
+QPixmap 로딩 결과: True, 크기: 800x600
+🖼️ 이미지 표시 완료!
+🎯 PowerPoint 렌더링 시작: C:/Users/Administrator/Desktop/ppt양식.pptx, 슬라이드 0
+🔄 PowerPoint COM 자동화 시도: C:/Users/Administrator/Desktop/ppt양식.pptx
+PowerPoint 애플리케이션 시작...
+PowerPoint COM 처리 오류: (-2147352567, '예외가 발생했습니다.', (0, 'Microsoft PowerPoint 2016', 'Application.Visible : Invalid request.  Hiding the application window is not allowed.', '', 0, -2147188160), None)
+PowerPoint 애플리케이션 종료 완료
+PowerPoint COM 렌더링 실패 또는 지원되지 않는 환경
+🔄 LibreOffice 렌더링 시도: C:/Users/Administrator/Desktop/ppt양식.pptx
+LibreOffice not found (tried 'libreoffice' and 'soffice')
+⚠️ 모든 원본 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 0)
+슬라이드 이미지 렌더링 오류 (C:/Users/Administrator/Desktop/ppt양식.pptx, 슬라이드 0): shape does not contain a chart
+❌ LibreOffice 렌더링 실패, 텍스트 기반 렌더링 사용됨
+🎯 PowerPoint 렌더링 시작: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx, 슬라이드 0
+🔄 PowerPoint COM 자동화 시도: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx
+PowerPoint 애플리케이션 시작...
+PowerPoint COM 처리 오류: (-2147352567, '예외가 발생했습니다.', (0, 'Microsoft PowerPoint 2016', 'Application.Visible : Invalid request.  Hiding the application window is not allowed.', '', 0, -2147188160), None)
+PowerPoint 애플리케이션 종료 완료
+PowerPoint COM 렌더링 실패 또는 지원되지 않는 환경
+🔄 LibreOffice 렌더링 시도: C:/Users/Administrator/Desktop/PC등록절차/AD 유무선 이행 가이드.pptx
+LibreOffice not found (tried 'libreoffice' and 'soffice')
+⚠️ 모든 원본 렌더링 실패, 텍스트 기반 렌더링으로 폴백 (슬라이드 0)
+✅ LibreOffice 렌더링 성공! 이미지 크기: (800, 600)
+QPixmap 로딩 결과: True, 크기: 800x600
+🖼️ 이미지 표시 완료!

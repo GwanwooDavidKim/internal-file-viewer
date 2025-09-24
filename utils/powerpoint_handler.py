@@ -719,7 +719,22 @@ class PowerPointHandler:
                 # PowerPoint 애플리케이션 시작
                 print("PowerPoint 애플리케이션 시작...")
                 ppt_app = win32com.client.Dispatch("PowerPoint.Application")
-                ppt_app.Visible = False  # 백그라운드에서 실행
+                
+                # 일부 PowerPoint 버전에서는 Visible=False가 차단되므로 True로 설정
+                try:
+                    ppt_app.Visible = False  # 우선 숨김 모드 시도
+                    print("PowerPoint 숨김 모드로 실행")
+                except Exception as e:
+                    print(f"숨김 모드 실패, 보이는 모드로 실행: {e}")
+                    ppt_app.Visible = True  # 보이는 모드로 폴백
+                    
+                    # 사용자 방해 최소화
+                    try:
+                        ppt_app.DisplayAlerts = 0  # 알림 비활성화
+                        ppt_app.WindowState = 2   # 최소화 (ppWindowMinimized)
+                        print("PowerPoint 창 최소화 및 알림 비활성화")
+                    except:
+                        pass  # 일부 버전에서 지원되지 않을 수 있음
                 
                 # PowerPoint 파일 열기
                 print(f"PowerPoint 파일 열기: {file_path}")
