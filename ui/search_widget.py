@@ -107,6 +107,19 @@ class SearchWidget(QWidget):
         
         search_layout.addLayout(indexing_layout)
         
+        # 인덱싱 대상 파일 확장자 표시
+        self.indexed_extensions_label = QLabel("인덱싱 대상: .pdf .ppt .pptx .doc .docx .txt (※ Excel 제외)")
+        self.indexed_extensions_label.setStyleSheet(f"""
+            QLabel {{
+                color: {config.UI_COLORS['text']};
+                font-size: {config.UI_FONTS['small_size']}px;
+                font-style: italic;
+                padding: 2px;
+                background-color: {config.UI_COLORS['background']};
+            }}
+        """)
+        search_layout.addWidget(self.indexed_extensions_label)
+        
         # 진행률 표시
         self.progress_bar = QProgressBar()
         self.progress_bar.hide()
