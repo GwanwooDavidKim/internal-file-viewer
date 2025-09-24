@@ -101,17 +101,50 @@ class ContentViewer(QWidget):
         info_layout = QVBoxLayout()
         self.info_frame.setLayout(info_layout)
         
-        # 파일명과 기본 정보
+        # 상단 헤더 (파일명 + 원본 열기 버튼)
+        header_layout = QHBoxLayout()
+        
+        # 파일명과 기본 정보 (왼쪽)
+        title_info_layout = QVBoxLayout()
         self.title_label = QLabel("파일을 선택하세요")
         self.title_label.setFont(QFont(config.UI_FONTS["font_family"], 
                                      config.UI_FONTS["subtitle_size"], 
                                      QFont.Weight.Bold))
         self.title_label.setStyleSheet(f"color: {config.UI_COLORS['primary']};")
-        info_layout.addWidget(self.title_label)
         
         self.details_label = QLabel("")
         self.details_label.setStyleSheet(f"color: {config.UI_COLORS['text']};")
-        info_layout.addWidget(self.details_label)
+        
+        title_info_layout.addWidget(self.title_label)
+        title_info_layout.addWidget(self.details_label)
+        
+        # 원본 열기 버튼 (오른쪽 상단)
+        self.open_file_button = QPushButton("📂 원본 열기")
+        self.open_file_button.setFont(QFont(config.UI_FONTS["font_family"], 10))
+        self.open_file_button.setFixedSize(120, 35)
+        self.open_file_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+        """)
+        self.open_file_button.clicked.connect(self.open_original_file)
+        self.open_file_button.hide()  # 기본적으로 숨김 (파일 선택 시 표시)
+        
+        header_layout.addLayout(title_info_layout)
+        header_layout.addStretch()  # 공간 확보
+        header_layout.addWidget(self.open_file_button)
+        
+        info_layout.addLayout(header_layout)
         
         layout.addWidget(self.info_frame)
         
@@ -274,6 +307,8 @@ class ContentViewer(QWidget):
         # 로딩 페이지 표시
         self.content_stack.setCurrentWidget(self.loading_page)
         self.control_frame.hide()
+        # 로딩 시작 시 버튼 숨김
+        self.open_file_button.hide()
         
         # 기존 워커가 있으면 정리
         if self.load_worker:
@@ -300,6 +335,9 @@ class ContentViewer(QWidget):
             details += f" | 시트: {file_info['sheet_count']}"
         
         self.details_label.setText(details)
+        
+        # 파일 로딩 완료 시 원본 열기 버튼 표시
+        self.open_file_button.show()
         
         # 파일 타입별 뷰어 설정
         file_type = file_info['file_type']
@@ -379,22 +417,16 @@ class ContentViewer(QWidget):
         """Word/PowerPoint 문서 뷰어를 설정합니다."""
         file_type = file_info['file_type']
         
-        if file_type == 'powerpoint':
-            # PowerPoint 배치 렌더링 시작 (백그라운드)
-            self.start_powerpoint_batch_rendering(self.current_file_path)
-            # 첫 번째 슬라이드 즉시 표시
-            self.render_powerpoint_slide(self.current_file_path, 0)
-        else:
-            # Word 문서는 텍스트 미리보기
-            self.original_label.setText(f"""
+        # PowerPoint와 Word 문서 공통 처리
+        self.original_label.setText(f"""
 📄 {file_type.upper()} 문서
 
 파일명: {file_info['filename']}
 크기: {file_info['file_size_mb']} MB
 
-원본 미리보기는 향후 버전에서 지원 예정입니다.
-현재는 텍스트 탭에서 내용을 확인하실 수 있습니다.
-            """)
+텍스트 내용은 "텍스트" 탭에서 확인하실 수 있습니다.
+원본 파일을 열려면 상단의 "원본 열기" 버튼을 클릭하세요.
+        """)
         
         # 텍스트 탭 설정
         text_content = file_info.get('text_sample', '')
@@ -403,17 +435,13 @@ class ContentViewer(QWidget):
         
         self.doc_text_viewer.setPlainText(text_content)
         
-        # PowerPoint의 경우 슬라이드 네비게이션
+        # PowerPoint의 경우 슬라이드 정보만 표시 (네비게이션 없음)
         if file_type == 'powerpoint':
             slide_count = file_info.get('slide_count', 1)
-            if slide_count > 1:
-                self.page_spin.setMaximum(slide_count)
-                self.page_total_label.setText(f"/ {slide_count}")
-                self.page_label.setText("슬라이드:")
-                self.page_label.show()
-                self.page_spin.show()
-                self.page_total_label.show()
-                self.control_frame.show()
+            # 슬라이드 수 정보를 텍스트에 추가
+            current_text = self.original_label.text()
+            updated_text = current_text.replace('크기:', f'슬라이드 수: {slide_count}개\n크기:')
+            self.original_label.setText(updated_text)
         
         # 시트 컨트롤 숨김
         self.sheet_label.hide()
@@ -421,39 +449,6 @@ class ContentViewer(QWidget):
         
         self.content_stack.setCurrentWidget(self.document_viewer)
     
-    def start_powerpoint_batch_rendering(self, file_path: str):
-        """PowerPoint 배치 렌더링을 백그라운드에서 시작합니다."""
-        from PyQt6.QtCore import QThread, pyqtSignal
-        
-        class BatchRenderWorker(QThread):
-            progress_updated = pyqtSignal(str)  # 진행상황 신호
-            
-            def __init__(self, file_path, ppt_handler):
-                super().__init__()
-                self.file_path = file_path
-                self.ppt_handler = ppt_handler
-                
-            def run(self):
-                try:
-                    self.progress_updated.emit("🚀 모든 슬라이드 배치 렌더링 중...")
-                    slides = self.ppt_handler.render_all_slides_batch(self.file_path)
-                    if slides:
-                        self.progress_updated.emit(f"✅ {len(slides)}개 슬라이드 렌더링 완료! 빠른 전환 준비됨")
-                    else:
-                        self.progress_updated.emit("⚠️ 배치 렌더링 실패, 개별 렌더링 사용")
-                except Exception as e:
-                    self.progress_updated.emit(f"❌ 배치 렌더링 오류: {e}")
-        
-        # 배치 렌더링 작업자 시작
-        ppt_handler = self.file_manager.handlers['powerpoint']
-        self.batch_worker = BatchRenderWorker(file_path, ppt_handler)
-        self.batch_worker.progress_updated.connect(self.update_batch_progress)
-        self.batch_worker.start()
-        
-    def update_batch_progress(self, message: str):
-        """배치 렌더링 진행상황을 업데이트합니다."""
-        print(message)
-        # 상태바나 원하는 곳에 메시지 표시 가능
         
     def render_powerpoint_slide(self, file_path: str, slide_num: int = 0):
         """PowerPoint 슬라이드를 이미지로 렌더링합니다. (캐시 우선 사용)"""
@@ -653,16 +648,42 @@ pip install Pillow
                 self.doc_text_viewer.setPlainText(f"페이지 {page_num} 텍스트 로딩 오류: {str(e)}")
         
         elif file_type == 'powerpoint':
-            # PowerPoint 슬라이드 변경 - 원본 이미지와 텍스트 모두 업데이트
-            self.render_powerpoint_slide(self.current_file_path, page_num - 1)
+            # PowerPoint는 슬라이드 렌더링하지 않음 - 원본 열기만 지원
+            pass
             
-            # 해당 슬라이드의 텍스트도 업데이트
+            # PowerPoint 슬라이드별 텍스트 업데이트는 유지 (검색 기능을 위해)
             ppt_handler = self.file_manager.handlers['powerpoint']
             slide_data = ppt_handler.extract_text_from_slide(self.current_file_path, page_num - 1)
             if 'full_text' in slide_data:
                 self.doc_text_viewer.setPlainText(f"=== 슬라이드 {page_num} ===\n\n{slide_data['full_text']}")
             else:
                 self.doc_text_viewer.setPlainText(f"슬라이드 {page_num} 텍스트 로딩 오류")
+    
+    def open_original_file(self):
+        """원본 파일을 기본 프로그램으로 엽니다."""
+        if not self.current_file_path:
+            return
+        
+        try:
+            import subprocess
+            import sys
+            import os
+            
+            if sys.platform == "win32":
+                # Windows에서는 os.startfile 사용
+                os.startfile(self.current_file_path)
+            elif sys.platform == "darwin":
+                # macOS에서는 open 명령 사용
+                subprocess.call(["open", self.current_file_path])
+            else:
+                # Linux에서는 xdg-open 사용
+                subprocess.call(["xdg-open", self.current_file_path])
+                
+            print(f"✅ 원본 파일 열기: {self.current_file_path}")
+            
+        except Exception as e:
+            print(f"❌ 원본 파일 열기 실패: {e}")
+            # 사용자에게 오류 알림을 표시할 수도 있음
     
     def on_sheet_changed(self, sheet_name: str):
         """시트 변경 시 호출됩니다."""
