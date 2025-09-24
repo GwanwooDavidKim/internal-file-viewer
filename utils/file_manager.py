@@ -126,12 +126,7 @@ class FileManager:
                         elif basic_info['file_type'] == 'word':
                             detail_info = handler.get_document_info(file_path)
                         elif basic_info['file_type'] == 'powerpoint':
-                            # PowerPoint 즉시 접근 모드 - 무거운 파싱 방지
-                            detail_info = {
-                                'slide_count': 'Unknown (즉시 접근 모드)',
-                                'slides_summary': [],
-                                'quick_mode': True
-                            }
+                            detail_info = handler.get_presentation_info(file_path)
                         elif basic_info['file_type'] in ['text', 'Plain Text', 'Markdown', 'Log File', 'Text File']:
                             detail_info = handler.get_metadata(file_path)
                         else:
@@ -171,8 +166,7 @@ class FileManager:
             elif file_type == 'word':
                 return handler.extract_text(file_path, kwargs.get('include_structure', True))
             elif file_type == 'powerpoint':
-                # PowerPoint 즉시 접근 모드 - 텍스트 추출 건너뛰기
-                return "PowerPoint 즉시 접근 모드: 텍스트 추출이 비활성화되었습니다. PowerPoint로 직접 여세요."
+                return handler.extract_all_text(file_path)
             elif file_type == 'excel':
                 # Excel의 경우 첫 번째 시트의 데이터를 텍스트로 변환
                 sheet_data = handler.read_sheet(file_path)
@@ -219,8 +213,7 @@ class FileManager:
             if file_type == 'word':
                 return handler.search_in_document(file_path, search_term, max_results)
             elif file_type == 'powerpoint':
-                # PowerPoint 즉시 접근 모드 - 검색 기능 비활성화
-                return [{'message': 'PowerPoint 즉시 접근 모드: 검색을 위해 PowerPoint로 직접 여세요.', 'quick_mode': True}]
+                return handler.search_in_presentation(file_path, search_term, max_results)
             elif file_type == 'excel':
                 # Excel의 경우 모든 시트에서 검색
                 results = []
@@ -287,8 +280,8 @@ class FileManager:
             elif file_type == 'word':
                 return {'structure': handler.get_document_structure(file_path)}
             elif file_type == 'powerpoint':
-                # 완전 빠른 접근 모드 - 어떤 파싱도 하지 않음
-                return {'quick_mode': True, 'message': 'PowerPoint 즉시 접근 모드'}
+                slide_num = kwargs.get('slide', 0)
+                return handler.extract_text_from_slide(file_path, slide_num)
             else:
                 return {'error': '미리보기를 지원하지 않는 파일 형식입니다'}
                 

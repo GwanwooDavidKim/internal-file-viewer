@@ -729,21 +729,10 @@ class PowerPointHandler:
                 print("PowerPoint 애플리케이션 시작...")
                 ppt_app = win32com.client.Dispatch("PowerPoint.Application")
                 
-                # 완전 숨김 처리 - 사용자가 전혀 인지하지 못하게
+                # 일부 PowerPoint 버전에서는 Visible=False가 차단되므로 True로 설정
                 try:
                     ppt_app.Visible = False  # 우선 숨김 모드 시도
-                    ppt_app.DisplayAlerts = False  # 경고창 비활성화
-                    
-                    # 창을 최소화하고 화면 밖으로 이동
-                    try:
-                        ppt_app.WindowState = 2  # ppWindowMinimized
-                        ppt_app.Left = -10000
-                        ppt_app.Top = -10000
-                        ppt_app.Width = 1
-                        ppt_app.Height = 1
-                    except:
-                        pass
-                    print("PowerPoint 완전 숨김 모드로 실행")
+                    print("PowerPoint 숨김 모드로 실행")
                 except Exception as e:
                     print(f"숨김 모드 실패, 보이는 모드로 실행: {e}")
                     ppt_app.Visible = True  # 보이는 모드로 폴백
@@ -890,21 +879,10 @@ class PowerPointHandler:
                 print("PowerPoint 애플리케이션 시작 (배치 모드)...")
                 ppt_app = win32com.client.Dispatch("PowerPoint.Application")
                 
-                # 완전 숨김 처리 (배치 모드)
+                # Visible 설정
                 try:
                     ppt_app.Visible = False
-                    ppt_app.DisplayAlerts = False
-                    
-                    # 창을 완전히 숨김
-                    try:
-                        ppt_app.WindowState = 2  # ppWindowMinimized
-                        ppt_app.Left = -10000
-                        ppt_app.Top = -10000
-                        ppt_app.Width = 1
-                        ppt_app.Height = 1
-                    except:
-                        pass
-                    print("PowerPoint 완전 숨김 모드로 실행 (배치)")
+                    print("PowerPoint 숨김 모드로 실행")
                 except Exception as e:
                     print(f"숨김 모드 실패, 보이는 모드로 실행: {e}")
                     ppt_app.Visible = True
