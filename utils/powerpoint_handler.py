@@ -413,28 +413,87 @@ class PowerPointHandler:
                 draw.line([(margin, y_position + 10), (width - margin, y_position + 10)], fill='gray', width=2)
                 y_position += 30
             
-            # 슬라이드 내용 렌더링
+            # 슬라이드 내용 렌더링 (텍스트, 이미지, 도표 포함)
             content_items = []
+            image_count = 0
+            chart_count = 0
+            table_count = 0
             
             for shape in slide.shapes:
+                # 텍스트 내용 추가
                 if hasattr(shape, "text") and shape.text and shape != slide.shapes.title:
-                    content_items.append(shape.text)
+                    content_items.append(("text", shape.text))
+                
+                # 이미지 확인
+                elif shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                    image_count += 1
+                    content_items.append(("image", f"[이미지 {image_count}]"))
+                
+                # 차트 확인
+                elif hasattr(shape, 'chart') and shape.chart is not None:
+                    chart_count += 1
+                    chart_title = getattr(shape.chart, 'chart_title', None)
+                    chart_name = chart_title.text_frame.text if chart_title and hasattr(chart_title, 'text_frame') else f"차트 {chart_count}"
+                    content_items.append(("chart", f"[도표: {chart_name}]"))
+                
+                # 표 확인
+                elif hasattr(shape, 'table') and shape.table is not None:
+                    table_count += 1
+                    table = shape.table
+                    table_info = f"표 {table_count} ({len(table.rows)}x{len(table.columns)})"
+                    content_items.append(("table", f"[{table_info}]"))
             
             # 내용을 순서대로 렌더링
-            for item in content_items[:5]:  # 최대 5개 항목만 표시
+            for item_type, item_text in content_items[:8]:  # 최대 8개 항목 표시
                 if y_position > height - 100:  # 화면 하단 근처면 중단
                     break
                 
-                # 텍스트를 여러 줄로 나누기
-                lines = self._wrap_text(item, width - 2*margin, text_font, draw)
+                # 항목 타입에 따른 스타일링
+                if item_type == "text":
+                    # 텍스트를 여러 줄로 나누기
+                    lines = self._wrap_text(item_text, width - 2*margin, text_font, draw)
+                    
+                    for line in lines[:3]:  # 각 항목당 최대 3줄
+                        if y_position > height - 50:
+                            break
+                        draw.text((margin, y_position), f"• {line}", font=text_font, fill='black')
+                        y_position += 30
                 
-                for line in lines[:3]:  # 각 항목당 최대 3줄
-                    if y_position > height - 50:
-                        break
-                    draw.text((margin, y_position), f"• {line}", font=text_font, fill='black')
-                    y_position += 30
+                elif item_type == "image":
+                    # 이미지 플레이스홀더 표시
+                    draw.rectangle([(margin, y_position), (margin + 100, y_position + 60)], 
+                                 outline='blue', fill='lightblue', width=2)
+                    draw.text((margin + 10, y_position + 20), item_text, font=small_font, fill='darkblue')
+                    y_position += 70
                 
-                y_position += 15  # 항목 간 간격
+                elif item_type == "chart":
+                    # 차트 플레이스홀더 표시
+                    draw.rectangle([(margin, y_position), (margin + 120, y_position + 60)], 
+                                 outline='green', fill='lightgreen', width=2)
+                    draw.text((margin + 10, y_position + 20), item_text, font=small_font, fill='darkgreen')
+                    y_position += 70
+                
+                elif item_type == "table":
+                    # 표 플레이스홀더 표시
+                    draw.rectangle([(margin, y_position), (margin + 100, y_position + 40)], 
+                                 outline='orange', fill='lightyellow', width=2)
+                    draw.text((margin + 10, y_position + 12), item_text, font=small_font, fill='darkorange')
+                    y_position += 50
+                
+                y_position += 10  # 항목 간 간격
+            
+            # 슬라이드 요소 요약 표시
+            if image_count > 0 or chart_count > 0 or table_count > 0:
+                summary_y = height - 80
+                summary_text = f"포함 요소: "
+                if image_count > 0:
+                    summary_text += f"이미지 {image_count}개 "
+                if chart_count > 0:
+                    summary_text += f"도표 {chart_count}개 "
+                if table_count > 0:
+                    summary_text += f"표 {table_count}개"
+                
+                draw.text((margin, summary_y), summary_text, font=small_font, fill='gray')
             
             # 슬라이드 번호 표시
             slide_info = f"슬라이드 {slide_number + 1} / {len(prs.slides)}"

@@ -64,7 +64,7 @@ class FileLoadWorker(QThread):
                 file_info['preview'] = self.file_manager.get_preview_data(self.file_path, slide=0)
                 file_info['text_sample'] = self.file_manager.extract_text(self.file_path)[:1000]
             
-            elif file_type == 'text':
+            elif file_type in ['text', 'Plain Text', 'Markdown', 'Log File', 'Text File']:
                 # 텍스트 파일의 경우 미리보기 준비
                 text_handler = self.file_manager.handlers['text']
                 file_info['text_sample'] = text_handler.get_preview(self.file_path, max_lines=10)
@@ -312,10 +312,10 @@ class ContentViewer(QWidget):
             self.setup_excel_viewer(file_info)
         elif file_type in ['word', 'powerpoint']:
             self.setup_document_viewer(file_info)
-        elif file_type == 'text':
+        elif file_type in ['text', 'Plain Text', 'Markdown', 'Log File', 'Text File']:
             self.setup_text_file_viewer(file_info)
         else:
-            self.show_error("지원되지 않는 파일 형식입니다.")
+            self.show_error(f"지원되지 않는 파일 형식입니다. (파일 타입: {file_type})")
     
     def setup_pdf_viewer(self, file_info: Dict[str, Any]):
         """PDF 뷰어를 설정합니다."""
