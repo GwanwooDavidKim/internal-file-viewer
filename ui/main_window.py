@@ -64,6 +64,20 @@ class MainWindow(QMainWindow):
         
         toolbar_layout.addStretch()
         
+        # 크레딧 표시 (사용자 요청: MCI팀 gwanwookim 크레딧)
+        credit_label = QLabel("💎 Made by MCI Team • gwanwookim")
+        credit_label.setStyleSheet(f"""
+            QLabel {{
+                color: {config.UI_COLORS['accent']};
+                font-size: 11px;
+                font-weight: bold;
+                padding: 5px 10px;
+                border-radius: 3px;
+                background-color: rgba(63, 81, 181, 0.1);
+            }}
+        """)
+        toolbar_layout.addWidget(credit_label)
+        
         # 사용자 정보 레이블
         self.user_info_label = QLabel("")
         toolbar_layout.addWidget(self.user_info_label)

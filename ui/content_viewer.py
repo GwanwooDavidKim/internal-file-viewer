@@ -199,15 +199,55 @@ class ContentViewer(QWidget):
         """)
         self.content_stack.addWidget(self.empty_page)
         
-        # 2. 로딩 페이지
-        self.loading_page = QLabel("⏳\\n\\n파일을 로딩 중입니다...")
-        self.loading_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.loading_page.setStyleSheet(f"""
+        # 2. 개선된 로딩 페이지 (사용자 요청: 명확한 로딩 상태 표시)
+        self.loading_page = QWidget()
+        loading_layout = QVBoxLayout()
+        self.loading_page.setLayout(loading_layout)
+        
+        # 로딩 스피너 및 메시지
+        loading_container = QVBoxLayout()
+        loading_container.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # 로딩 아이콘과 메시지
+        self.loading_icon = QLabel("🔄")
+        self.loading_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_icon.setStyleSheet(f"""
+            QLabel {{
+                color: {config.UI_COLORS['accent']};
+                font-size: 48px;
+                margin: 20px;
+            }}
+        """)
+        
+        self.loading_text = QLabel("파일을 로딩 중입니다...")
+        self.loading_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_text.setStyleSheet(f"""
             QLabel {{
                 color: {config.UI_COLORS['accent']};
                 font-size: {config.UI_FONTS['title_size']}px;
+                font-weight: bold;
+                margin: 10px;
             }}
         """)
+        
+        self.loading_file_name = QLabel("")
+        self.loading_file_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_file_name.setStyleSheet(f"""
+            QLabel {{
+                color: {config.UI_COLORS['text']};
+                font-size: {config.UI_FONTS['content_size']}px;
+                margin: 5px;
+            }}
+        """)
+        
+        loading_container.addWidget(self.loading_icon)
+        loading_container.addWidget(self.loading_text)
+        loading_container.addWidget(self.loading_file_name)
+        
+        loading_layout.addStretch()
+        loading_layout.addLayout(loading_container)
+        loading_layout.addStretch()
+        
         self.content_stack.addWidget(self.loading_page)
         
         # 3. 텍스트 뷰어 페이지
@@ -345,7 +385,10 @@ class ContentViewer(QWidget):
         
         self.current_file_path = file_path
         
-        # 로딩 페이지 표시
+        # 로딩 페이지 표시 (개선된 로딩 메시지)
+        filename = os.path.basename(file_path)
+        self.loading_text.setText("파일을 로딩 중입니다...")
+        self.loading_file_name.setText(f"📄 {filename}")
         self.content_stack.setCurrentWidget(self.loading_page)
         self.control_frame.hide()
         # 로딩 시작 시 버튼들 숨김
