@@ -472,9 +472,12 @@ class ContentViewer(QWidget):
 ⚡ win32com을 사용한 고속 렌더링으로 곧 표시됩니다!
             """)
             
-            # 즉시 첫 번째 슬라이드 렌더링 (백그라운드에서)
-            print(f"🚀 PowerPoint 파일 감지! 즉시 렌더링 시작: {self.current_file_path}")
-            self.render_powerpoint_slide(self.current_file_path, slide_num=0)
+            # 모든 슬라이드 배치 렌더링으로 변경 (훨씬 효율적!)
+            print(f"🚀 PowerPoint 파일 감지! 배치 렌더링 시작: {self.current_file_path}")
+            self.batch_render_all_slides(self.current_file_path)
+            
+            # 첫 번째 슬라이드 즉시 표시
+            self.show_cached_slide(0)
             
             # 슬라이드가 여러 개인 경우 네비게이션 컨트롤 표시
             if slide_count > 1:
@@ -522,15 +525,41 @@ class ContentViewer(QWidget):
         self.content_stack.setCurrentWidget(self.document_viewer)
     
         
-    def render_powerpoint_slide(self, file_path: str, slide_num: int = 0):
-        """PowerPoint 슬라이드를 이미지로 렌더링합니다. (캐시 우선 사용)"""
+    def batch_render_all_slides(self, file_path: str):
+        """PowerPoint 파일의 모든 슬라이드를 한 번에 배치 렌더링합니다."""
         try:
-            print(f"🎯 PowerPoint 렌더링 시작: {file_path}, 슬라이드 {slide_num}")
+            print(f"🎯 PowerPoint 배치 렌더링 시작: {file_path}")
             ppt_handler = self.file_manager.handlers['powerpoint']
-            image = ppt_handler.render_slide_to_image(file_path, slide_num, width=800, height=600)
+            
+            # 배치 렌더링 실행 (한 번에 모든 슬라이드!)
+            all_slides = ppt_handler.render_all_slides_batch(file_path)
+            
+            if all_slides:
+                print(f"✅ 배치 렌더링 성공! {len(all_slides)}개 슬라이드 캐시됨")
+                # 성공 메시지 업데이트
+                current_text = self.original_label.text()
+                updated_text = current_text.replace(
+                    "⚡ win32com을 사용한 고속 렌더링으로 곧 표시됩니다!",
+                    f"✅ 배치 렌더링 완료! {len(all_slides)}개 슬라이드 준비됨"
+                )
+                self.original_label.setText(updated_text)
+            else:
+                print("❌ 배치 렌더링 실패")
+                self.original_label.setText("배치 렌더링 실패 - 개별 렌더링으로 전환됩니다")
+                
+        except Exception as e:
+            print(f"❌ PowerPoint 배치 렌더링 예외: {e}")
+            self.original_label.setText(f"배치 렌더링 오류: {str(e)}")
+    
+    def show_cached_slide(self, slide_num: int):
+        """캐시에서 슬라이드 이미지를 즉시 표시합니다."""
+        try:
+            print(f"💾 캐시에서 슬라이드 {slide_num} 로딩...")
+            ppt_handler = self.file_manager.handlers['powerpoint']
+            image = ppt_handler.get_cached_slide(self.current_file_path, slide_num)
             
             if image:
-                print(f"✅ LibreOffice 렌더링 성공! 이미지 크기: {image.size}")
+                print(f"✅ 캐시 히트! 이미지 크기: {image.size}")
                 # PIL Image를 QPixmap으로 변환
                 import io
                 buffer = io.BytesIO()
@@ -539,7 +568,44 @@ class ContentViewer(QWidget):
                 
                 pixmap = QPixmap()
                 success = pixmap.loadFromData(buffer.getvalue())
-                print(f"QPixmap 로딩 결과: {success}, 크기: {pixmap.width()}x{pixmap.height()}")
+                
+                if success and not pixmap.isNull():
+                    # 화면에 맞게 크기 조정
+                    max_width = 800
+                    if pixmap.width() > max_width:
+                        pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
+                    
+                    self.original_label.setPixmap(pixmap)
+                    print("🖼️ 캐시 이미지 표시 완료!")
+                else:
+                    print("❌ QPixmap 변환 실패")
+                    self.original_label.setText("이미지 변환 실패")
+            else:
+                print("❌ 캐시 미스 - 개별 렌더링 시도")
+                # 개별 렌더링으로 폴백
+                self.render_individual_slide(slide_num)
+                
+        except Exception as e:
+            print(f"❌ 캐시 슬라이드 표시 예외: {e}")
+            self.original_label.setText(f"슬라이드 표시 오류: {str(e)}")
+    
+    def render_individual_slide(self, slide_num: int):
+        """개별 슬라이드 렌더링 (배치 렌더링 실패 시 폴백)"""
+        try:
+            print(f"🎯 개별 슬라이드 렌더링: {slide_num}")
+            ppt_handler = self.file_manager.handlers['powerpoint']
+            image = ppt_handler.render_slide_to_image(self.current_file_path, slide_num, width=800, height=600)
+            
+            if image:
+                print(f"✅ 개별 렌더링 성공! 이미지 크기: {image.size}")
+                # PIL Image를 QPixmap으로 변환
+                import io
+                buffer = io.BytesIO()
+                image.save(buffer, format='PNG')
+                buffer.seek(0)
+                
+                pixmap = QPixmap()
+                success = pixmap.loadFromData(buffer.getvalue())
                 
                 if success and not pixmap.isNull():
                     # 화면에 맞게 크기 조정
@@ -553,23 +619,12 @@ class ContentViewer(QWidget):
                     print("❌ QPixmap 변환 실패")
                     self.original_label.setText("이미지 변환 실패")
             else:
-                print("❌ LibreOffice 렌더링 실패, 텍스트 기반 렌더링 사용됨")
-                self.original_label.setText("슬라이드 렌더링 실패 - LibreOffice 변환 오류")
+                print("❌ 개별 렌더링 실패")
+                self.original_label.setText("슬라이드 렌더링 실패")
                 
         except Exception as e:
-            print(f"❌ PowerPoint 렌더링 예외: {e}")
-            # Pillow가 없는 경우 안내 메시지 표시
-            if "PIL" in str(e) or "Pillow" in str(e):
-                self.original_label.setText("""
-PowerPoint 슬라이드 미리보기를 위해 Pillow 라이브러리가 필요합니다.
-
-설치 방법:
-pip install Pillow
-
-현재는 텍스트 탭에서 슬라이드 내용을 확인하실 수 있습니다.
-                """)
-            else:
-                self.original_label.setText(f"슬라이드 렌더링 오류: {str(e)}")
+            print(f"❌ 개별 렌더링 예외: {e}")
+            self.original_label.setText(f"슬라이드 렌더링 오류: {str(e)}")
     
     def setup_text_file_viewer(self, file_info: Dict[str, Any]):
         """텍스트 파일 뷰어를 설정합니다."""
@@ -721,9 +776,9 @@ pip install Pillow
                 self.doc_text_viewer.setPlainText(f"페이지 {page_num} 텍스트 로딩 오류: {str(e)}")
         
         elif file_type == 'powerpoint':
-            # PowerPoint 슬라이드 변경 시 이미지와 텍스트 모두 업데이트
-            print(f"🔄 PowerPoint 슬라이드 변경: {page_num}")
-            self.render_powerpoint_slide(self.current_file_path, page_num - 1)  # 0부터 시작
+            # PowerPoint 슬라이드 변경 시 캐시에서 즉시 로딩 (배치 렌더링 완료 후)
+            print(f"🔄 PowerPoint 슬라이드 변경: {page_num} (캐시에서 즉시 로딩)")
+            self.show_cached_slide(page_num - 1)  # 0부터 시작
             self.load_powerpoint_slide_text(page_num)
     
     def open_original_file(self):
