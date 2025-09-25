@@ -860,43 +860,30 @@ class PowerPointHandler:
                 print("⚠️ Windows COM 라이브러리를 찾을 수 없습니다 (pywin32 설치 필요)")
                 return False
             
-            # COM 초기화
-            pythoncom.CoInitialize()
+            # COM 초기화 (간단하게)
+            try:
+                pythoncom.CoInitialize()
+            except:
+                pass  # 이미 초기화되어 있을 수 있음
             
             print(f"🚀 PowerPoint 지속 연결 시작: {file_path}")
             
-            # PowerPoint 애플리케이션 시작
-            self.current_ppt_app = win32com.client.Dispatch("PowerPoint.Application")
+            # 🎯 간단한 재시도 로직 (직관적 해결책!)
+            for attempt in range(2):  # 최대 2번 시도
+                try:
+                    # PowerPoint 애플리케이션 시작
+                    self.current_ppt_app = win32com.client.Dispatch("PowerPoint.Application")
+                    break  # 성공하면 바로 나가기
+                except Exception as e:
+                    print(f"⚠️ PowerPoint 시작 시도 {attempt+1} 실패: {e}")
+                    if attempt == 1:  # 마지막 시도였다면
+                        raise e
+                    import time
+                    time.sleep(0.5)  # 0.5초 대기 후 재시도
             
-            # 🔥 강력한 백그라운드 실행 (PowerPoint 2016 호환)
-            try:
-                # PowerPoint 2016은 Visible=False 허용 안함! 바로 강제 숨김으로!
-                self.current_ppt_app.DisplayAlerts = 0  # 알림 완전 비활성화
-                
-                # 즉시 강력한 창 숨김 (사용자 요청: 넉넉한 딜레이 적용)
-                import win32gui
-                import win32con
-                import time
-                
-                # 넉넉한 딜레이로 PowerPoint 완전 로드까지 대기
-                time.sleep(0.3)
-                
-                def hide_all_powerpoint_windows(hwnd, lparam):
-                    window_text = win32gui.GetWindowText(hwnd)
-                    class_name = win32gui.GetClassName(hwnd)
-                    if ("PowerPoint" in window_text or 
-                        "Microsoft PowerPoint" in window_text or
-                        "PPTFrameClass" in class_name):
-                        win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
-                        print(f"🔥 PowerPoint 창 즉시 숨김: {window_text}")
-                    return True
-                
-                win32gui.EnumWindows(hide_all_powerpoint_windows, None)
-                print("✅ PowerPoint 애플리케이션 백그라운드 실행 완료!")
-                
-            except Exception as e:
-                print(f"⚠️ 백그라운드 실행 설정 실패: {e}")
-                # 실패해도 계속 진행
+            # 🎯 직관적이고 단순한 PowerPoint 실행 (사용자 요청: 복잡한 설정 제거!)
+            # COM 속성 설정 없이 바로 파일 열기로 진행 (안정성 우선!)
+            print("✅ PowerPoint 애플리케이션 시작 완료 (단순 모드)")
             
             # PowerPoint 파일 열기
             self.current_presentation = self.current_ppt_app.Presentations.Open(
@@ -904,46 +891,29 @@ class PowerPointHandler:
             )
             self.current_file_path = file_path
             
-            # 🔥 파일 열기 후 강화된 숨김 처리! (사용자 요청: 넉넉한 딜레이로 완전 해결)
+            # 🎯 파일 열기 후 간단한 창 숨김 (직관적 해결책!)
             try:
-                # 추가로 프레젠테이션 창도 숨김 설정
-                if hasattr(self.current_presentation, 'SlideShowSettings'):
-                    self.current_presentation.SlideShowSettings.ShowType = 1  # 발표자 모드
-                
-                # 파일 열기 후 강화된 창 숨김 (넉넉한 딜레이 적용!)
                 import win32gui
                 import win32con
                 import time
                 
-                # 사용자 요청: 넉넉한 딜레이! 파일이 완전히 열릴 때까지 충분히 대기
-                time.sleep(1.0)  # 1초 대기로 증가!
+                # 간단한 딜레이
+                time.sleep(0.5)
                 
-                # 여러 번 시도해서 완전히 숨김
-                for attempt in range(3):  # 3번 시도
-                    try:
-                        def hide_all_powerpoint_windows(hwnd, lparam):
-                            window_text = win32gui.GetWindowText(hwnd)
-                            class_name = win32gui.GetClassName(hwnd)
-                            if ("PowerPoint" in window_text or 
-                                "Microsoft PowerPoint" in window_text or
-                                "PPTFrameClass" in class_name or
-                                ".ppt" in window_text.lower() or
-                                ".pptx" in window_text.lower() or
-                                "Large Area Display" in window_text):  # 파일명도 감지
-                                win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
-                                print(f"🔥 시도 {attempt+1}: PowerPoint 창 강제 숨김: {window_text}")
-                            return True
-                        
-                        win32gui.EnumWindows(hide_all_powerpoint_windows, None)
-                        time.sleep(0.2)  # 각 시도 사이에 잠시 대기
-                        
-                    except Exception as hide_error:
-                        print(f"⚠️ 시도 {attempt+1} 실패: {hide_error}")
+                # 한 번만 시도해서 PowerPoint 창 숨김 (단순하게!)
+                def hide_powerpoint_windows(hwnd, lparam):
+                    window_text = win32gui.GetWindowText(hwnd)
+                    if "PowerPoint" in window_text:
+                        win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
+                        print(f"PowerPoint 창 숨김: {window_text}")
+                    return True
                 
-                print("✅ 파일 열기 후 강화된 PowerPoint 창 숨김 완료!")
+                win32gui.EnumWindows(hide_powerpoint_windows, None)
+                print("✅ PowerPoint 창 숨김 완료!")
                     
-            except Exception as post_open_error:
-                print(f"⚠️ 파일 열기 후 숨김 처리 실패: {post_open_error}")
+            except Exception as e:
+                print(f"⚠️ 창 숨김 실패 (무시하고 계속): {e}")
+                # 창 숨김 실패해도 렌더링은 정상 작동!
             
             slide_count = self.current_presentation.Slides.Count
             print(f"✅ PowerPoint 지속 연결 완료! 슬라이드 수: {slide_count}")
