@@ -881,11 +881,29 @@ class PowerPointHandler:
                     import time
                     time.sleep(0.5)  # 0.5초 대기 후 재시도
             
-            # 🎯 직관적이고 단순한 PowerPoint 실행 (사용자 요청: 복잡한 설정 제거!)
-            # COM 속성 설정 없이 바로 파일 열기로 진행 (안정성 우선!)
+            # 🎯 PowerPoint 완전 초기화 대기 (직관적 해결책!)
             print("✅ PowerPoint 애플리케이션 시작 완료 (단순 모드)")
             
-            # PowerPoint 파일 열기
+            # PowerPoint가 완전히 준비될 때까지 기다리기 (핵심 해결책!)
+            import time
+            print("⏰ PowerPoint 완전 초기화 대기 중...")
+            time.sleep(2.0)  # 2초 대기로 충분한 초기화 시간 제공
+            
+            # Presentations 객체가 준비될 때까지 체크
+            for wait_attempt in range(5):  # 최대 5번 시도
+                try:
+                    # Presentations 객체 접근 테스트
+                    presentations_count = len(self.current_ppt_app.Presentations)
+                    print(f"✅ Presentations 객체 준비 완료! (기존 파일 수: {presentations_count})")
+                    break
+                except Exception as e:
+                    print(f"⏰ Presentations 준비 대기 중... 시도 {wait_attempt+1}/5: {e}")
+                    time.sleep(1.0)  # 1초씩 추가 대기
+                    if wait_attempt == 4:  # 마지막 시도였다면
+                        raise Exception("PowerPoint Presentations 객체 준비 실패")
+            
+            # 이제 안전하게 PowerPoint 파일 열기
+            print(f"📂 PowerPoint 파일 열기 시도: {os.path.basename(file_path)}")
             self.current_presentation = self.current_ppt_app.Presentations.Open(
                 os.path.abspath(file_path), ReadOnly=True
             )
