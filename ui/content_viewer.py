@@ -457,30 +457,24 @@ class ContentViewer(QWidget):
         file_type = file_info['file_type']
         
         # PowerPoint와 Word 문서 공통 처리
-        self.original_label.setText(f"""
-📄 {file_type.upper()} 문서
-
-파일명: {file_info['filename']}
-크기: {file_info['file_size_mb']} MB
-
-텍스트 내용은 "텍스트" 탭에서 확인하실 수 있습니다.
-원본 파일을 열려면 상단의 "원본 열기" 버튼을 클릭하세요.
-        """)
-        
-        # 텍스트 탭 설정
-        text_content = file_info.get('text_sample', '')
-        if not text_content:
-            text_content = self.file_manager.extract_text(self.current_file_path)
-        
-        self.doc_text_viewer.setPlainText(text_content)
-        
-        # PowerPoint의 경우 슬라이드 네비게이션 표시 (텍스트 탭용)
         if file_type == 'powerpoint':
+            # PowerPoint의 경우 즉시 첫 번째 슬라이드 렌더링 시작
             slide_count = file_info.get('slide_count', 1)
-            # 슬라이드 수 정보를 텍스트에 추가
-            current_text = self.original_label.text()
-            updated_text = current_text.replace('크기:', f'슬라이드 수: {slide_count}개\n크기:')
-            self.original_label.setText(updated_text)
+            
+            # 로딩 메시지 표시
+            self.original_label.setText(f"""
+🎯 PowerPoint 슬라이드 렌더링 중...
+
+📄 파일명: {file_info['filename']}
+📊 슬라이드 수: {slide_count}개
+💾 크기: {file_info['file_size_mb']} MB
+
+⚡ win32com을 사용한 고속 렌더링으로 곧 표시됩니다!
+            """)
+            
+            # 즉시 첫 번째 슬라이드 렌더링 (백그라운드에서)
+            print(f"🚀 PowerPoint 파일 감지! 즉시 렌더링 시작: {self.current_file_path}")
+            self.render_powerpoint_slide(self.current_file_path, slide_num=0)
             
             # 슬라이드가 여러 개인 경우 네비게이션 컨트롤 표시
             if slide_count > 1:
@@ -498,6 +492,28 @@ class ContentViewer(QWidget):
             
             # 첫 번째 슬라이드 텍스트 로드
             self.load_powerpoint_slide_text(1)
+            
+        else:
+            # Word 문서의 경우
+            self.original_label.setText(f"""
+📄 {file_type.upper()} 문서
+
+파일명: {file_info['filename']}
+크기: {file_info['file_size_mb']} MB
+
+텍스트 내용은 "텍스트" 탭에서 확인하실 수 있습니다.
+원본 파일을 열려면 상단의 "원본 열기" 버튼을 클릭하세요.
+            """)
+            
+            # 컨트롤 숨김
+            self.control_frame.hide()
+        
+        # 텍스트 탭 설정 (Word/PowerPoint 공통)
+        text_content = file_info.get('text_sample', '')
+        if not text_content:
+            text_content = self.file_manager.extract_text(self.current_file_path)
+        
+        self.doc_text_viewer.setPlainText(text_content)
         
         # 시트 컨트롤 숨김
         self.sheet_label.hide()
@@ -705,7 +721,9 @@ pip install Pillow
                 self.doc_text_viewer.setPlainText(f"페이지 {page_num} 텍스트 로딩 오류: {str(e)}")
         
         elif file_type == 'powerpoint':
-            # PowerPoint는 이미지 렌더링하지 않고 텍스트만 업데이트
+            # PowerPoint 슬라이드 변경 시 이미지와 텍스트 모두 업데이트
+            print(f"🔄 PowerPoint 슬라이드 변경: {page_num}")
+            self.render_powerpoint_slide(self.current_file_path, page_num - 1)  # 0부터 시작
             self.load_powerpoint_slide_text(page_num)
     
     def open_original_file(self):

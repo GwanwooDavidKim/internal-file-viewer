@@ -3,7 +3,7 @@ modules = ["python-3.11", "nodejs-20"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["cargo", "freetype", "glibcLocales", "gumbo", "harfbuzz", "jbig2dec", "lcms2", "libGL", "libiconv", "libimagequant", "libjpeg", "libjpeg_turbo", "libtiff", "libwebp", "libxcrypt", "mesa", "mupdf", "openjpeg", "rustc", "swig", "tcl", "tk", "xcbuild", "xorg.libX11", "xorg.libXcursor", "xorg.libXi", "xorg.libXinerama", "xorg.libXrandr", "zlib", "libreoffice"]
+packages = ["cargo", "freetype", "glibcLocales", "gumbo", "harfbuzz", "jbig2dec", "lcms2", "libGL", "libiconv", "libimagequant", "libjpeg", "libjpeg_turbo", "libreoffice", "libtiff", "libwebp", "libxcrypt", "mesa", "mupdf", "openjpeg", "rustc", "swig", "tcl", "tk", "xcbuild", "xorg.libX11", "xorg.libXcursor", "xorg.libXi", "xorg.libXinerama", "xorg.libXrandr", "zlib"]
 
 [unitTest]
 language = "python3"
