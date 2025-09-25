@@ -41,8 +41,18 @@ class FileFilterProxyModel(QSortFilterProxyModel):
             return True  # 모든 파일 표시
         
         source_model = self.sourceModel()
+        if not source_model:
+            return True
+            
         index = source_model.index(source_row, 0, source_parent)
-        file_path = source_model.filePath(index)
+        if not index.isValid():
+            return True
+            
+        # QFileSystemModel로 캐스팅하여 filePath 메서드 사용
+        if hasattr(source_model, 'filePath'):
+            file_path = source_model.filePath(index)
+        else:
+            return True
         
         # 디렉토리는 항상 표시
         if os.path.isdir(file_path):
