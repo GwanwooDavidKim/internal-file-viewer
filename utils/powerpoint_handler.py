@@ -868,18 +868,40 @@ class PowerPointHandler:
             # PowerPoint 애플리케이션 시작
             self.current_ppt_app = win32com.client.Dispatch("PowerPoint.Application")
             
-            # 최소화 모드로 실행 (사용자 방해 최소화)
+            # 강력한 백그라운드 실행 (사용자 요청: 완전히 안 보이게!)
             try:
+                # 단계별 숨김 시도
                 self.current_ppt_app.Visible = False
-                print("PowerPoint 숨김 모드로 실행")
+                self.current_ppt_app.DisplayAlerts = 0  # 알림 완전 비활성화
+                print("✅ PowerPoint 완전 숨김 모드 성공!")
             except Exception as e:
-                print(f"숨김 모드 실패, 최소화 모드로 실행: {e}")
-                self.current_ppt_app.Visible = True
+                print(f"숨김 모드 실패, 강력한 최소화 모드로 전환: {e}")
                 try:
+                    # 최대한 백그라운드로 보내기
+                    self.current_ppt_app.Visible = True
                     self.current_ppt_app.DisplayAlerts = 0
                     self.current_ppt_app.WindowState = 2  # 최소화
-                    print("PowerPoint 창 최소화 완료")
+                    
+                    # 추가로 창을 작업표시줄 아래로 숨김
+                    try:
+                        import win32gui
+                        import win32con
+                        # PowerPoint 창 찾아서 숨기기
+                        def hide_powerpoint_windows(hwnd, lparam):
+                            window_text = win32gui.GetWindowText(hwnd)
+                            if "PowerPoint" in window_text or "Microsoft PowerPoint" in window_text:
+                                win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
+                                print(f"PowerPoint 창 숨김: {window_text}")
+                            return True
+                        
+                        win32gui.EnumWindows(hide_powerpoint_windows, None)
+                        print("✅ PowerPoint 창 강제 숨김 완료!")
+                    except:
+                        # win32gui 실패해도 최소화는 유지
+                        print("⚠️ 창 숨김 실패, 최소화 상태 유지")
+                        pass
                 except:
+                    print("⚠️ 최소화도 실패, 그대로 실행")
                     pass
             
             # PowerPoint 파일 열기
