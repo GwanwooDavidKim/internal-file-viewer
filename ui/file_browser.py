@@ -7,7 +7,7 @@ QTreeView와 QFileSystemModel을 사용하여 파일 시스템을 탐색하는 �
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeView, 
                             QLineEdit, QPushButton, QLabel, QComboBox, QFrame)
 from PyQt6.QtGui import QFileSystemModel
-from PyQt6.QtCore import Qt, QDir, QFileSystemWatcher, pyqtSignal, QModelIndex
+from PyQt6.QtCore import Qt, QDir, QFileSystemWatcher, pyqtSignal, QModelIndex, QSortFilterProxyModel
 from PyQt6.QtGui import QFont
 import os
 from typing import Optional
@@ -15,15 +15,15 @@ import config
 from utils.file_manager import FileManager
 
 
-class FileFilterModel(QFileSystemModel):
+class FileFilterProxyModel(QSortFilterProxyModel):
     """
-    파일 형식 필터링을 지원하는 사용자 정의 파일 시스템 모델입니다.
+    파일 형식 필터링을 지원하는 프록시 모델입니다.
     """
     
     def __init__(self, file_manager: FileManager):
         super().__init__()
         self.file_manager = file_manager
-        self.show_all_files = True
+        self.show_all_files = False  # 기본적으로 지원되는 파일만 표시
         
     def set_show_all_files(self, show_all: bool):
         """
@@ -33,22 +33,26 @@ class FileFilterModel(QFileSystemModel):
             show_all (bool): True면 모든 파일, False면 지원되는 파일만 표시
         """
         self.show_all_files = show_all
-        # 모델 새로고침을 위해 루트 경로 재설정
-        if self.rootPath():
-            root_path = self.rootPath()
-            self.setRootPath("")
-            self.setRootPath(root_path)
+        self.invalidateFilter()  # 필터 다시 적용
     
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
-        """파일 항목의 데이터를 반환합니다."""
-        if role == Qt.ItemDataRole.ForegroundRole and not self.show_all_files:
-            file_path = self.filePath(index)
-            if os.path.isfile(file_path) and not self.file_manager.is_supported_file(file_path):
-                # 지원되지 않는 파일은 회색으로 표시
-                from PyQt6.QtGui import QColor
-                return QColor("#888888")
+    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
+        """행이 필터를 통과하는지 확인합니다."""
+        if self.show_all_files:
+            return True  # 모든 파일 표시
         
-        return super().data(index, role)
+        source_model = self.sourceModel()
+        index = source_model.index(source_row, 0, source_parent)
+        file_path = source_model.filePath(index)
+        
+        # 디렉토리는 항상 표시
+        if os.path.isdir(file_path):
+            return True
+        
+        # 파일인 경우 지원되는 파일만 표시
+        if os.path.isfile(file_path):
+            return self.file_manager.is_supported_file(file_path)
+        
+        return True
 
 
 class FileBrowser(QWidget):
@@ -101,6 +105,7 @@ class FileBrowser(QWidget):
         
         self.filter_combo = QComboBox()
         self.filter_combo.addItems(["지원되는 파일만", "모든 파일"])
+        self.filter_combo.setCurrentText("지원되는 파일만")  # 기본값을 "지원되는 파일만"으로 설정
         self.filter_combo.currentTextChanged.connect(self.on_filter_changed)
         filter_layout.addWidget(self.filter_combo)
         
@@ -124,9 +129,13 @@ class FileBrowser(QWidget):
         self.tree_view.sortByColumn(0, Qt.SortOrder.AscendingOrder)
         
         # 파일 시스템 모델 설정
-        self.model = FileFilterModel(self.file_manager)
-        self.model.setReadOnly(True)
-        self.model.setFilter(QDir.Filter.AllDirs | QDir.Filter.Files | QDir.Filter.NoDotAndDotDot)
+        self.file_model = QFileSystemModel()
+        self.file_model.setReadOnly(True)
+        self.file_model.setFilter(QDir.Filter.AllDirs | QDir.Filter.Files | QDir.Filter.NoDotAndDotDot)
+        
+        # 프록시 모델로 필터링
+        self.model = FileFilterProxyModel(self.file_manager)
+        self.model.setSourceModel(self.file_model)
         
         self.tree_view.setModel(self.model)
         
@@ -223,9 +232,13 @@ class FileBrowser(QWidget):
         self.current_path = path
         self.path_label.setText(f"경로: {path}")
         
-        # 모델에 루트 경로 설정
-        root_index = self.model.setRootPath(path)
-        self.tree_view.setRootIndex(root_index)
+        # 파일 시스템 모델에 루트 경로 설정
+        self.file_model.setRootPath(path)
+        
+        # 프록시 모델을 통해 루트 인덱스 설정
+        source_root_index = self.file_model.index(path)
+        proxy_root_index = self.model.mapFromSource(source_root_index)
+        self.tree_view.setRootIndex(proxy_root_index)
         
         # 파일 와처에 경로 추가
         if self.file_watcher.directories():
@@ -241,7 +254,9 @@ class FileBrowser(QWidget):
     
     def on_file_clicked(self, index: QModelIndex):
         """파일 클릭 시 호출됩니다."""
-        file_path = self.model.filePath(index)
+        # 프록시 모델에서 소스 모델로 인덱스 변환
+        source_index = self.model.mapToSource(index)
+        file_path = self.file_model.filePath(source_index)
         
         if os.path.isfile(file_path):
             # 파일 정보 표시
@@ -269,7 +284,9 @@ class FileBrowser(QWidget):
     
     def on_file_double_clicked(self, index: QModelIndex):
         """파일 더블클릭 시 호출됩니다."""
-        file_path = self.model.filePath(index)
+        # 프록시 모델에서 소스 모델로 인덱스 변환
+        source_index = self.model.mapToSource(index)
+        file_path = self.file_model.filePath(source_index)
         
         if os.path.isdir(file_path):
             # 폴더인 경우 해당 폴더로 이동
@@ -288,9 +305,13 @@ class FileBrowser(QWidget):
             current_index = self.tree_view.currentIndex()
             
             # 모델 새로고침을 위해 루트 경로 재설정
-            self.model.setRootPath("")
-            root_index = self.model.setRootPath(self.current_path)
-            self.tree_view.setRootIndex(root_index)
+            self.file_model.setRootPath("")
+            self.file_model.setRootPath(self.current_path)
+            
+            # 프록시 모델을 통해 루트 인덱스 재설정
+            source_root_index = self.file_model.index(self.current_path)
+            proxy_root_index = self.model.mapFromSource(source_root_index)
+            self.tree_view.setRootIndex(proxy_root_index)
             
             # 선택 상태 복원
             if current_index.isValid():
@@ -306,7 +327,9 @@ class FileBrowser(QWidget):
         """현재 선택된 파일의 경로를 반환합니다."""
         current_index = self.tree_view.currentIndex()
         if current_index.isValid():
-            file_path = self.model.filePath(current_index)
+            # 프록시 모델에서 소스 모델로 인덱스 변환
+            source_index = self.model.mapToSource(current_index)
+            file_path = self.file_model.filePath(source_index)
             if os.path.isfile(file_path):
                 return file_path
         return None

@@ -58,6 +58,7 @@ class SearchWidget(QWidget):
         self.indexing_worker = None
         self.current_directory = ""
         self.current_selected_file = None  # 현재 선택된 파일 경로
+        self.search_mode = "content"  # "content" 또는 "filename"
         self.setup_ui()
         
         # 검색 지연 타이머 (타이핑 완료 후 검색)
@@ -79,7 +80,7 @@ class SearchWidget(QWidget):
         search_input_layout = QHBoxLayout()
         
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("파일 내용 검색... (2글자 이상 입력)")
+        self.search_input.setPlaceholderText("검색어 입력... (2글자 이상)")
         self.search_input.textChanged.connect(self.on_search_text_changed)
         self.search_input.returnPressed.connect(self.perform_search)
         search_input_layout.addWidget(self.search_input)
@@ -89,6 +90,24 @@ class SearchWidget(QWidget):
         search_input_layout.addWidget(self.search_button)
         
         search_layout.addLayout(search_input_layout)
+        
+        # 검색 옵션
+        search_options_layout = QHBoxLayout()
+        
+        self.search_content_radio = QPushButton("📄 파일 내용 검색")
+        self.search_content_radio.setCheckable(True)
+        self.search_content_radio.setChecked(True)
+        self.search_content_radio.clicked.connect(self.on_search_mode_changed)
+        search_options_layout.addWidget(self.search_content_radio)
+        
+        self.search_filename_radio = QPushButton("📝 파일명 검색")
+        self.search_filename_radio.setCheckable(True)
+        self.search_filename_radio.clicked.connect(self.on_search_mode_changed)
+        search_options_layout.addWidget(self.search_filename_radio)
+        
+        search_options_layout.addStretch()
+        
+        search_layout.addLayout(search_options_layout)
         
         # 인덱싱 컨트롤
         indexing_layout = QHBoxLayout()
@@ -153,25 +172,43 @@ class SearchWidget(QWidget):
         
         results_splitter.addWidget(results_frame)
         
-        # 미리보기 영역
-        preview_frame = QFrame()
-        preview_layout = QVBoxLayout()
-        preview_frame.setLayout(preview_layout)
+        # 파일 작업 영역
+        actions_frame = QFrame()
+        actions_layout = QHBoxLayout()
+        actions_frame.setLayout(actions_layout)
         
-        # 미리보기 헤더
-        preview_header = QHBoxLayout()
+        actions_layout.addStretch()
         
-        preview_title = QLabel("미리보기")
-        preview_title.setFont(QFont(config.UI_FONTS["font_family"], 
-                                  config.UI_FONTS["subtitle_size"], 
-                                  QFont.Weight.Bold))
-        preview_header.addWidget(preview_title)
+        # 폴더 열기 버튼
+        self.open_folder_button = QPushButton("📁 폴더 열기")
+        self.open_folder_button.setFixedSize(100, 35)
+        self.open_folder_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+            QPushButton:pressed {
+                background-color: #E65100;
+            }
+            QPushButton:disabled {
+                background-color: #CCCCCC;
+                color: #666666;
+            }
+        """)
+        self.open_folder_button.clicked.connect(self.open_folder_location)
+        self.open_folder_button.setEnabled(False)
+        actions_layout.addWidget(self.open_folder_button)
         
-        preview_header.addStretch()
-        
-        # 원본 열기 버튼 (오른쪽 상단)
+        # 원본 열기 버튼
         self.open_original_button = QPushButton("📂 원본 열기")
-        self.open_original_button.setFixedSize(100, 30)
+        self.open_original_button.setFixedSize(100, 35)
         self.open_original_button.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
@@ -194,20 +231,12 @@ class SearchWidget(QWidget):
         """)
         self.open_original_button.clicked.connect(self.open_original_file)
         self.open_original_button.setEnabled(False)  # 기본적으로 비활성화
-        preview_header.addWidget(self.open_original_button)
+        actions_layout.addWidget(self.open_original_button)
         
-        preview_layout.addLayout(preview_header)
-        
-        self.preview_text = QTextEdit()
-        self.preview_text.setReadOnly(True)
-        self.preview_text.setMaximumHeight(150)
-        self.preview_text.setPlainText("검색 결과를 선택하면 미리보기가 표시됩니다.")
-        preview_layout.addWidget(self.preview_text)
-        
-        results_splitter.addWidget(preview_frame)
+        results_splitter.addWidget(actions_frame)
         
         # 스플리터 비율 설정
-        results_splitter.setSizes([300, 150])
+        results_splitter.setSizes([400, 50])
         
         layout.addWidget(results_splitter)
         
@@ -250,6 +279,30 @@ class SearchWidget(QWidget):
         self.index_button.setStyleSheet(button_style)
         self.clear_index_button.setStyleSheet(button_style)
         
+        # 검색 모드 버튼 스타일
+        radio_style = f"""
+            QPushButton {{
+                background-color: {config.UI_COLORS['secondary']};
+                color: {config.UI_COLORS['text']};
+                border: 2px solid {config.UI_COLORS['secondary']};
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: {config.UI_FONTS['body_size']}px;
+            }}
+            QPushButton:checked {{
+                background-color: {config.UI_COLORS['accent']};
+                color: white;
+                border-color: {config.UI_COLORS['accent']};
+            }}
+            QPushButton:hover {{
+                background-color: {config.UI_COLORS['hover']};
+                color: white;
+            }}
+        """
+        self.search_content_radio.setStyleSheet(radio_style)
+        self.search_filename_radio.setStyleSheet(radio_style)
+        
         list_style = f"""
             QListWidget {{
                 background-color: white;
@@ -270,16 +323,7 @@ class SearchWidget(QWidget):
         """
         self.results_list.setStyleSheet(list_style)
         
-        text_style = f"""
-            QTextEdit {{
-                background-color: white;
-                border: 1px solid {config.UI_COLORS['secondary']};
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: {config.UI_FONTS['body_size']}px;
-                line-height: 1.4;
-            }}
-        """
-        self.preview_text.setStyleSheet(text_style)
+        # 텍스트 스타일 (미리보기가 제거되어 더 이상 사용하지 않음)
     
     def set_directory(self, directory_path: str):
         """
@@ -332,9 +376,13 @@ class SearchWidget(QWidget):
         """인덱스를 초기화합니다."""
         self.indexer.clear_index()
         self.results_list.clear()
-        self.preview_text.setPlainText("인덱스가 초기화되었습니다.")
         self.update_index_stats()
         self.results_label.setText("검색 결과 - 인덱스 초기화됨")
+        
+        # 버튼들 비활성화
+        self.open_original_button.setEnabled(False)
+        self.open_folder_button.setEnabled(False)
+        self.current_selected_file = None
     
     def update_index_stats(self):
         """인덱스 통계를 업데이트합니다."""
@@ -351,7 +399,6 @@ class SearchWidget(QWidget):
             self.search_timer.start(500)
         else:
             self.results_list.clear()
-            self.preview_text.setPlainText("2글자 이상 입력해주세요.")
             self.results_label.setText("검색 결과")
     
     def perform_search(self):
@@ -362,16 +409,19 @@ class SearchWidget(QWidget):
             self.results_label.setText("검색 결과 - 2글자 이상 입력해주세요")
             return
         
-        # 검색 실행
-        search_results = self.indexer.search_files(query, max_results=100)
+        # 검색 모드에 따라 다른 검색 수행
+        if self.search_mode == "content":
+            # 파일 내용 검색
+            search_results = self.indexer.search_files(query, max_results=100)
+        else:
+            # 파일명 검색
+            search_results = self.search_by_filename(query, max_results=100)
         
         # 결과 표시
         self.results_list.clear()
-        self.preview_text.setPlainText("")
         
         if not search_results:
             self.results_label.setText(f"검색 결과 - '{query}'에 대한 결과 없음")
-            self.preview_text.setPlainText("검색 결과가 없습니다. 다른 검색어를 시도해보세요.")
             return
         
         self.results_label.setText(f"검색 결과 - '{query}' ({len(search_results)}개)")
@@ -399,19 +449,9 @@ class SearchWidget(QWidget):
         if result:
             self.current_selected_file = result['file_path']
             
-            # 미리보기 표시
-            preview_text = f"파일: {result['filename']}\\n"
-            preview_text += f"경로: {result['file_path']}\\n"
-            preview_text += f"타입: {result['file_type']}\\n"
-            preview_text += f"크기: {result['file_size_mb']}MB\\n"
-            preview_text += f"관련성: {result['relevance_score']:.2f}\\n\\n"
-            preview_text += "내용 미리보기:\\n"
-            preview_text += result.get('preview', '미리보기 없음')
-            
-            self.preview_text.setPlainText(preview_text)
-            
-            # 원본 열기 버튼 활성화
+            # 버튼들 활성화
             self.open_original_button.setEnabled(True)
+            self.open_folder_button.setEnabled(True)
             
             # 파일 선택 신호 발생
             self.file_selected.emit(result['file_path'])
@@ -468,3 +508,94 @@ class SearchWidget(QWidget):
             
         except Exception as e:
             print(f"❌ 원본 파일 열기 실패: {e}")
+    
+    def open_folder_location(self):
+        """선택된 파일이 있는 폴더를 엽니다."""
+        if not self.current_selected_file or not os.path.exists(self.current_selected_file):
+            return
+        
+        try:
+            import subprocess
+            import sys
+            
+            folder_path = os.path.dirname(self.current_selected_file)
+            
+            if sys.platform == "win32":
+                # Windows에서는 explorer 사용
+                subprocess.run(['explorer', folder_path])
+            elif sys.platform == "darwin":
+                # macOS에서는 open 명령 사용
+                subprocess.call(["open", folder_path])
+            else:
+                # Linux에서는 xdg-open 사용
+                subprocess.call(["xdg-open", folder_path])
+                
+            print(f"✅ 폴더 열기: {folder_path}")
+            
+        except Exception as e:
+            print(f"❌ 폴더 열기 실패: {e}")
+    
+    def on_search_mode_changed(self):
+        """검색 모드 변경 시 호출됩니다."""
+        if self.search_content_radio.isChecked():
+            self.search_mode = "content"
+            self.search_filename_radio.setChecked(False)
+            self.search_input.setPlaceholderText("파일 내용 검색... (2글자 이상)")
+        else:
+            self.search_mode = "filename"
+            self.search_content_radio.setChecked(False)
+            self.search_input.setPlaceholderText("파일명 검색... (2글자 이상)")
+    
+    def search_by_filename(self, query: str, max_results: int = 100):
+        """
+        파일명으로 검색을 수행합니다.
+        
+        Args:
+            query (str): 검색 쿼리
+            max_results (int): 최대 결과 수
+            
+        Returns:
+            List[Dict]: 검색 결과
+        """
+        if not self.current_directory or not os.path.exists(self.current_directory):
+            return []
+        
+        results = []
+        query_lower = query.lower()
+        
+        try:
+            # 현재 디렉토리에서 파일 검색
+            for root, dirs, files in os.walk(self.current_directory):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    
+                    # 파일명에 검색어가 포함되어 있는지 확인
+                    if query_lower in file.lower():
+                        # 지원되는 파일만 결과에 포함
+                        if self.indexer.file_manager.is_supported_file(file_path):
+                            file_info = self.indexer.file_manager.get_file_info(file_path)
+                            
+                            if file_info.get('supported', False):
+                                result = {
+                                    'filename': file_info['filename'],
+                                    'file_path': file_path,
+                                    'file_type': file_info['file_type'],
+                                    'file_size_mb': file_info['file_size_mb'],
+                                    'relevance_score': 1.0,  # 파일명 매칭이므로 높은 점수
+                                    'preview': f"파일명 매칭: {file}"
+                                }
+                                results.append(result)
+                                
+                                if len(results) >= max_results:
+                                    break
+                
+                if len(results) >= max_results:
+                    break
+                    
+        except Exception as e:
+            print(f"❌ 파일명 검색 중 오류: {e}")
+        
+        # 관련성 점수로 정렬 (파일명 일치도)
+        results.sort(key=lambda x: x['relevance_score'], reverse=True)
+        
+        return results
