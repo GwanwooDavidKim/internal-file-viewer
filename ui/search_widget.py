@@ -277,29 +277,29 @@ class SearchWidget(QWidget):
         self.index_button.setStyleSheet(button_style)
         self.clear_index_button.setStyleSheet(button_style)
         
-        # 검색 모드 버튼 스타일
-        radio_style = f"""
-            QPushButton {{
-                background-color: {config.UI_COLORS['secondary']};
-                color: {config.UI_COLORS['text']};
+        # 검색 모드 드롭다운 스타일
+        combo_style = f"""
+            QComboBox {{
+                background-color: white;
                 border: 2px solid {config.UI_COLORS['secondary']};
                 padding: 6px 12px;
                 border-radius: 4px;
                 font-weight: bold;
                 font-size: {config.UI_FONTS['body_size']}px;
+                color: {config.UI_COLORS['text']};
             }}
-            QPushButton:checked {{
-                background-color: {config.UI_COLORS['accent']};
-                color: white;
+            QComboBox:hover {{
                 border-color: {config.UI_COLORS['accent']};
             }}
-            QPushButton:hover {{
-                background-color: {config.UI_COLORS['hover']};
-                color: white;
+            QComboBox::drop-down {{
+                border: none;
+            }}
+            QComboBox::down-arrow {{
+                width: 12px;
+                height: 12px;
             }}
         """
-        self.search_content_radio.setStyleSheet(radio_style)
-        self.search_filename_radio.setStyleSheet(radio_style)
+        self.search_mode_combo.setStyleSheet(combo_style)
         
         list_style = f"""
             QListWidget {{
@@ -410,7 +410,7 @@ class SearchWidget(QWidget):
         # 검색 모드에 따라 다른 검색 수행
         if self.search_mode == "content":
             # 파일 내용 검색 - 인덱싱 완료 체크
-            if not self.indexer or len(self.indexer.file_index) == 0:
+            if not self.indexer or len(self.indexer.indexed_paths) == 0:
                 QMessageBox.warning(self, "인덱싱 필요", 
                                    "파일 내용 검색을 위해서는 먼저 인덱싱을 완료해야 합니다.\n\n'📂 폴더 인덱싱' 버튼을 클릭하여 인덱싱을 시작하세요.")
                 return

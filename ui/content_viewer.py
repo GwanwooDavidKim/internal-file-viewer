@@ -698,7 +698,7 @@ pip install Pillow
                 import fitz
                 with fitz.open(self.current_file_path) as doc:
                     if page_num - 1 < len(doc):
-                        page_text = doc[page_num - 1].get_text()
+                        page_text = doc[page_num - 1].get_text("text")
                         self.doc_text_viewer.setPlainText(f"=== 페이지 {page_num} ===\n\n{page_text}")
             except Exception as e:
                 self.doc_text_viewer.setPlainText(f"페이지 {page_num} 텍스트 로딩 오류: {str(e)}")
