@@ -910,6 +910,44 @@ class PowerPointHandler:
             )
             self.current_file_path = file_path
             
+            # 🔥 파일 열기 후 다시 강력한 숨김 처리! (사용자 요청: 계속 뜨는 문제 해결)
+            try:
+                # 파일 열기 후에도 완전 숨김 유지
+                self.current_ppt_app.Visible = False
+                
+                # 추가로 프레젠테이션 창도 숨김
+                if hasattr(self.current_presentation, 'SlideShowSettings'):
+                    self.current_presentation.SlideShowSettings.ShowType = 1  # 발표자 모드
+                
+                # 다시 한번 강력한 창 숨김
+                try:
+                    import win32gui
+                    import win32con
+                    import time
+                    
+                    # 파일 열기 후 잠시 대기 (창이 완전히 로드될 때까지)
+                    time.sleep(0.1)
+                    
+                    def hide_all_powerpoint_windows(hwnd, lparam):
+                        window_text = win32gui.GetWindowText(hwnd)
+                        class_name = win32gui.GetClassName(hwnd)
+                        if ("PowerPoint" in window_text or 
+                            "Microsoft PowerPoint" in window_text or
+                            "PPTFrameClass" in class_name or
+                            ".ppt" in window_text.lower() or
+                            ".pptx" in window_text.lower()):
+                            win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
+                            print(f"🔥 PowerPoint 창 강제 숨김: {window_text} ({class_name})")
+                        return True
+                    
+                    win32gui.EnumWindows(hide_all_powerpoint_windows, None)
+                    print("✅ 파일 열기 후 PowerPoint 창 완전 숨김 완료!")
+                except Exception as hide_error:
+                    print(f"⚠️ 파일 열기 후 창 숨김 실패: {hide_error}")
+                    
+            except Exception as post_open_error:
+                print(f"⚠️ 파일 열기 후 숨김 처리 실패: {post_open_error}")
+            
             slide_count = self.current_presentation.Slides.Count
             print(f"✅ PowerPoint 지속 연결 완료! 슬라이드 수: {slide_count}")
             
