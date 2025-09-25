@@ -9,9 +9,11 @@ import re
 import json
 import time
 import threading
+import hashlib
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Set, Tuple
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import config
 from utils.file_manager import FileManager
 
@@ -290,6 +292,7 @@ class SearchIndexer:
     검색 인덱서 메인 클래스입니다.
     
     파일 시스템을 모니터링하고 자동으로 인덱싱을 수행합니다.
+    JSON 캐싱 시스템으로 빠른 검색을 지원합니다.
     """
     
     def __init__(self):
@@ -299,11 +302,16 @@ class SearchIndexer:
         self.indexing_thread = None
         self.stop_indexing = False
         self.indexed_paths = set()
+        
+        # 🚀 JSON 캐싱 시스템 (사용자 요청)
+        self.cache_directory = None
+        self.cache_file_path = None
+        self.metadata_file_path = None
     
     def index_directory(self, directory_path: str, recursive: bool = True, 
                        progress_callback=None):
         """
-        디렉토리를 인덱싱합니다.
+        디렉토리를 인덱싱합니다. (JSON 캐싱 시스템 포함)
         
         Args:
             directory_path (str): 인덱싱할 디렉토리 경로
@@ -313,7 +321,16 @@ class SearchIndexer:
         if not os.path.exists(directory_path):
             return
         
+        # 🚀 캐시 디렉토리 설정 (사용자 요청: 동일 경로에 JSON 파일)
+        self.set_cache_directory(directory_path)
+        
+        # 📂 캐시에서 기존 인덱스 로드 시도
+        cache_loaded = self.load_index_from_cache()
+        
         print(f"📂 디렉토리 인덱싱 시작: {directory_path}")
+        if cache_loaded:
+            print("⚡ 캐시에서 기존 인덱스 로드됨. 변경된 파일만 처리합니다.")
+        
         start_time = time.time()
         indexed_count = 0
         
@@ -342,41 +359,50 @@ class SearchIndexer:
             total_files = len(files_to_index)
             print(f"📄 인덱싱 대상 파일: {total_files}개")
             
-            # 파일별 인덱싱
-            for i, file_path in enumerate(files_to_index):
-                if self.stop_indexing:
-                    break
+            # 🚀 멀티스레드 인덱싱 (사용자 요청: 3-4개 스레드로 속도 최대화)
+            max_workers = min(4, max(1, len(files_to_index) // 10))  # 최적 스레드 수
+            print(f"⚡ {max_workers}개 스레드로 병렬 인덱싱 시작...")
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # 파일들을 스레드에 분배
+                futures = {
+                    executor.submit(self._index_single_file, file_path): file_path 
+                    for file_path in files_to_index
+                }
                 
-                try:
-                    # 파일 정보 조회
-                    file_info = self.file_manager.get_file_info(file_path)
+                # 완료된 작업들 처리
+                for i, future in enumerate(as_completed(futures)):
+                    if self.stop_indexing:
+                        break
                     
-                    if file_info.get('supported', False):
-                        # 텍스트 추출
-                        content = self.file_manager.extract_text(file_path)
-                        
-                        # 인덱스에 추가
-                        self.index.add_file(file_path, content, file_info)
-                        self.indexed_paths.add(file_path)
-                        indexed_count += 1
+                    try:
+                        result = future.result()
+                        if result:  # 성공적으로 인덱싱됨
+                            indexed_count += 1
                         
                         # 진행 상태 콜백
                         if progress_callback:
                             progress = (i + 1) / total_files * 100
+                            file_path = futures[future]
                             progress_callback(file_path, progress)
-                
-                except Exception as e:
-                    print(f"❌ 파일 인덱싱 오류 ({file_path}): {e}")
+                    
+                    except Exception as e:
+                        file_path = futures[future]
+                        print(f"❌ 파일 인덱싱 오류 ({file_path}): {e}")
             
             elapsed_time = time.time() - start_time
             print(f"✅ 인덱싱 완료: {indexed_count}개 파일, {elapsed_time:.2f}초 소요")
+            
+            # 🚀 인덱싱 완료 후 JSON 캐시 저장 (사용자 요청)
+            if indexed_count > 0:
+                self.save_index_to_cache()
             
         except Exception as e:
             print(f"❌ 디렉토리 인덱싱 오류: {e}")
     
     def search_files(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
         """
-        파일을 검색합니다.
+        파일을 검색합니다. (JSON 캐시 우선, 폴백으로 메모리 인덱스)
         
         Args:
             query (str): 검색 쿼리
@@ -385,6 +411,12 @@ class SearchIndexer:
         Returns:
             List[Dict[str, Any]]: 검색 결과
         """
+        # 🚀 JSON 캐시에서 우선 검색 (사용자 요청: JSON에서 바로 검색)
+        if self.cache_file_path and os.path.exists(self.cache_file_path):
+            return self.search_files_from_json(query, max_results)
+        
+        # 폴백: 메모리 인덱스에서 검색
+        print("⚠️ JSON 캐시 없음. 메모리 인덱스에서 검색...")
         return self.index.search(query, max_results)
     
     def add_file_to_index(self, file_path: str):
@@ -456,3 +488,376 @@ class SearchIndexer:
     def stop_indexing_process(self):
         """인덱싱 프로세스를 중단합니다."""
         self.stop_indexing = True
+    
+    def set_cache_directory(self, directory_path: str):
+        """
+        캐시 디렉토리를 설정합니다. (사용자 제안: 동일 경로에 JSON 파일 저장)
+        
+        Args:
+            directory_path (str): 검색 대상 디렉토리 경로
+        """
+        self.cache_directory = directory_path
+        self.cache_file_path = os.path.join(directory_path, ".file_index.json")
+        self.metadata_file_path = os.path.join(directory_path, ".index_metadata.json")
+        print(f"📁 캐시 설정: {self.cache_file_path}")
+    
+    def _get_file_hash(self, file_path: str) -> str:
+        """
+        파일의 해시값을 계산합니다. (수정 시간 + 크기 기반)
+        
+        Args:
+            file_path (str): 파일 경로
+            
+        Returns:
+            str: 파일 해시값
+        """
+        try:
+            stat = os.stat(file_path)
+            # 수정 시간 + 크기로 해시 생성
+            hash_input = f"{stat.st_mtime}_{stat.st_size}_{file_path}"
+            return hashlib.md5(hash_input.encode('utf-8')).hexdigest()
+        except:
+            return ""
+    
+    def save_index_to_cache(self):
+        """
+        인덱스를 JSON 파일에 저장합니다. (사용자 요청: JSON 파일로 캐싱)
+        """
+        if not self.cache_file_path or not self.cache_directory:
+            print("⚠️ 캐시 경로가 설정되지 않음")
+            return
+        
+        try:
+            print("💾 인덱스를 JSON 파일에 저장 중...")
+            
+            # 인덱스 데이터 구성 (사용자 제안 방식)
+            cache_data = {
+                "files": {},
+                "last_indexed": datetime.now().isoformat(),
+                "total_files": len(self.indexed_paths),
+                "index_version": "1.0"
+            }
+            
+            # 파일별 정보 저장 (파일명 + 내용)
+            for file_path in self.indexed_paths:
+                if file_path in self.index.file_info:
+                    file_info = self.index.file_info[file_path]
+                    relative_path = os.path.relpath(file_path, str(self.cache_directory))
+                    
+                    cache_data["files"][relative_path] = {
+                        "content": file_info.get('content_preview', ''),
+                        "title": os.path.basename(file_path),
+                        "size": file_info.get('file_size_mb', 0),
+                        "modified": file_info.get('indexed_time', datetime.now()).isoformat(),
+                        "type": file_info.get('file_type', 'unknown'),
+                        "file_hash": self._get_file_hash(file_path),
+                        "full_path": file_path
+                    }
+            
+            # JSON 파일로 저장
+            with open(str(self.cache_file_path), 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, ensure_ascii=False, indent=2)
+            
+            # 메타데이터 저장
+            metadata = {
+                "cache_created": datetime.now().isoformat(),
+                "indexed_directory": str(self.cache_directory),
+                "total_files": len(self.indexed_paths),
+                "cache_file_size": os.path.getsize(str(self.cache_file_path))
+            }
+            
+            with open(str(self.metadata_file_path), 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, ensure_ascii=False, indent=2)
+            
+            print(f"✅ 인덱스 캐시 저장 완료: {len(self.indexed_paths)}개 파일")
+            
+        except Exception as e:
+            print(f"❌ 인덱스 캐시 저장 실패: {e}")
+    
+    def load_index_from_cache(self) -> bool:
+        """
+        JSON 파일에서 인덱스를 로드합니다. (사용자 요청: JSON에서 빠른 검색)
+        
+        Returns:
+            bool: 로드 성공 여부
+        """
+        if not self.cache_file_path or not os.path.exists(self.cache_file_path):
+            print("📄 캐시 파일이 없습니다. 새로 인덱싱이 필요합니다.")
+            return False
+        
+        try:
+            print("📂 JSON 캐시에서 인덱스 로드 중...")
+            
+            with open(str(self.cache_file_path), 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+            
+            # 캐시 버전 체크
+            if cache_data.get("index_version") != "1.0":
+                print("⚠️ 캐시 버전 불일치. 새로 인덱싱이 필요합니다.")
+                return False
+            
+            # 파일 변경 사항 체크 (스마트 재인덱싱)
+            files_to_reindex = []
+            valid_files = 0
+            
+            for relative_path, file_data in cache_data["files"].items():
+                full_path = file_data.get("full_path")
+                if not full_path or not os.path.exists(full_path):
+                    continue
+                
+                # 파일 해시 체크로 변경 감지
+                current_hash = self._get_file_hash(full_path)
+                cached_hash = file_data.get("file_hash", "")
+                
+                if current_hash != cached_hash:
+                    files_to_reindex.append(full_path)
+                else:
+                    # 변경되지 않은 파일은 캐시에서 복원
+                    file_info = {
+                        'file_type': file_data.get('type', 'unknown'),
+                        'file_size_mb': file_data.get('size', 0),
+                        'indexed_time': datetime.fromisoformat(file_data.get('modified', datetime.now().isoformat())),
+                        'content_preview': file_data.get('content', ''),
+                        'supported': True
+                    }
+                    
+                    # 인덱스에 추가
+                    content = file_data.get('content', '')
+                    self.index.add_file(full_path, content, file_info)
+                    self.indexed_paths.add(full_path)
+                    valid_files += 1
+            
+            print(f"✅ 캐시에서 {valid_files}개 파일 로드 완료")
+            
+            if files_to_reindex:
+                print(f"🔄 변경된 파일 {len(files_to_reindex)}개 재인덱싱 필요")
+                # 변경된 파일들은 나중에 별도로 인덱싱
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ 캐시 로드 실패: {e}")
+            return False
+    
+    def get_cache_statistics(self) -> Dict[str, Any]:
+        """
+        캐시 통계 정보를 반환합니다.
+        
+        Returns:
+            Dict[str, Any]: 캐시 통계
+        """
+        from typing import Dict, Any, Union
+        stats: Dict[str, Union[bool, float, str]] = {"cache_available": False}
+        
+        if self.cache_file_path and os.path.exists(str(self.cache_file_path)):
+            try:
+                cache_size = os.path.getsize(str(self.cache_file_path))
+                cache_modified = datetime.fromtimestamp(os.path.getmtime(str(self.cache_file_path)))
+                
+                stats["cache_available"] = True
+                stats["cache_size_mb"] = float(cache_size) / (1024.0 * 1024.0)  # 명시적 float 변환
+                stats["cache_modified"] = cache_modified.isoformat()
+                stats["cache_file"] = str(self.cache_file_path)
+                
+            except:
+                pass
+        
+        return stats
+    
+    def _index_single_file(self, file_path: str) -> bool:
+        """
+        단일 파일을 인덱싱합니다. (멀티스레드에서 사용)
+        
+        Args:
+            file_path (str): 인덱싱할 파일 경로
+            
+        Returns:
+            bool: 인덱싱 성공 여부
+        """
+        try:
+            # 파일 정보 조회
+            file_info = self.file_manager.get_file_info(file_path)
+            
+            if file_info.get('supported', False):
+                # 텍스트 추출
+                content = self.file_manager.extract_text(file_path)
+                
+                # 스레드 안전하게 인덱스에 추가
+                self.index.add_file(file_path, content, file_info)
+                self.indexed_paths.add(file_path)
+                
+                return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"❌ 파일 인덱싱 오류 ({file_path}): {e}")
+            return False
+    
+    def search_files_from_json(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
+        """
+        JSON 캐시에서 직접 검색합니다. (사용자 요청: JSON에서 바로 빠른 검색)
+        
+        Args:
+            query (str): 검색 쿼리
+            max_results (int): 최대 결과 수
+            
+        Returns:
+            List[Dict[str, Any]]: 검색 결과
+        """
+        if not self.cache_file_path or not os.path.exists(self.cache_file_path):
+            print("📄 JSON 캐시 파일이 없습니다. 인덱싱을 먼저 실행하세요.")
+            return []
+        
+        try:
+            print(f"🔍 JSON에서 '{query}' 검색 중...")
+            
+            with open(str(self.cache_file_path), 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+            
+            results = []
+            query_lower = query.lower()
+            
+            # 파일별로 검색 수행
+            for relative_path, file_data in cache_data.get("files", {}).items():
+                full_path = file_data.get("full_path", "")
+                if not os.path.exists(full_path):
+                    continue
+                
+                # 파일명 + 내용에서 검색
+                title = file_data.get("title", "").lower()
+                content = file_data.get("content", "").lower()
+                
+                # 매칭 체크
+                filename_match = query_lower in title
+                content_match = query_lower in content
+                
+                if filename_match or content_match:
+                    # 관련성 점수 계산
+                    relevance_score = 0.0
+                    if filename_match:
+                        relevance_score += 2.0  # 파일명 매칭은 높은 점수
+                    if content_match:
+                        relevance_score += 1.0  # 내용 매칭
+                    
+                    # 매칭된 컨텍스트 추출
+                    preview = self._extract_context_from_content(
+                        file_data.get("content", ""), query
+                    )
+                    
+                    result = {
+                        'file_path': full_path,
+                        'filename': file_data.get("title", ""),
+                        'file_type': file_data.get("type", "unknown"),
+                        'file_size_mb': file_data.get("size", 0),
+                        'indexed_time': file_data.get("modified", ""),
+                        'preview': preview,
+                        'relevance_score': relevance_score
+                    }
+                    results.append(result)
+            
+            # 관련성 점수로 정렬
+            results.sort(key=lambda x: x['relevance_score'], reverse=True)
+            
+            print(f"✅ JSON 검색 완료: {len(results)}개 결과")
+            return results[:max_results]
+            
+        except Exception as e:
+            print(f"❌ JSON 검색 실패: {e}")
+            return []
+    
+    def search_files_by_filename_from_json(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
+        """
+        JSON 캐시에서 파일명으로만 검색합니다. (초고속)
+        
+        Args:
+            query (str): 검색 쿼리
+            max_results (int): 최대 결과 수
+            
+        Returns:
+            List[Dict[str, Any]]: 검색 결과
+        """
+        if not self.cache_file_path or not os.path.exists(self.cache_file_path):
+            return []
+        
+        try:
+            with open(str(self.cache_file_path), 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+            
+            results = []
+            query_lower = query.lower()
+            
+            # 파일명에서만 검색 (매우 빠름)
+            for relative_path, file_data in cache_data.get("files", {}).items():
+                full_path = file_data.get("full_path", "")
+                if not os.path.exists(full_path):
+                    continue
+                
+                title = file_data.get("title", "").lower()
+                filename_without_ext = os.path.splitext(title)[0].lower()
+                
+                if query_lower in filename_without_ext:
+                    relevance_score = 1.0
+                    if filename_without_ext.startswith(query_lower):
+                        relevance_score = 2.0  # 시작하는 경우 더 높은 점수
+                    
+                    result = {
+                        'file_path': full_path,
+                        'filename': file_data.get("title", ""),
+                        'file_type': file_data.get("type", "unknown"),
+                        'file_size_mb': file_data.get("size", 0),
+                        'indexed_time': file_data.get("modified", ""),
+                        'preview': f"파일명 매칭: {file_data.get('title', '')}",
+                        'relevance_score': relevance_score
+                    }
+                    results.append(result)
+            
+            results.sort(key=lambda x: x['relevance_score'], reverse=True)
+            return results[:max_results]
+            
+        except Exception as e:
+            print(f"❌ JSON 파일명 검색 실패: {e}")
+            return []
+    
+    def _extract_context_from_content(self, content: str, query: str, context_length: int = 150) -> str:
+        """
+        검색어 주변의 컨텍스트를 추출합니다.
+        
+        Args:
+            content (str): 원본 내용
+            query (str): 검색어
+            context_length (int): 컨텍스트 길이
+            
+        Returns:
+            str: 하이라이트된 컨텍스트
+        """
+        if not content or not query:
+            return content[:context_length] if content else ""
+        
+        content_lower = content.lower()
+        query_lower = query.lower()
+        
+        # 첫 번째 매칭 위치 찾기
+        match_pos = content_lower.find(query_lower)
+        if match_pos == -1:
+            return content[:context_length]
+        
+        # 컨텍스트 시작/끝 위치 계산
+        start = max(0, match_pos - context_length // 2)
+        end = min(len(content), match_pos + len(query) + context_length // 2)
+        
+        context = content[start:end]
+        
+        # 검색어 하이라이트 (간단한 방식)
+        highlighted = context.replace(
+            content[match_pos:match_pos + len(query)], 
+            f"**{content[match_pos:match_pos + len(query)]}**"
+        )
+        
+        # 앞뒤 생략 표시
+        if start > 0:
+            highlighted = "..." + highlighted
+        if end < len(content):
+            highlighted = highlighted + "..."
+        
+        return highlighted

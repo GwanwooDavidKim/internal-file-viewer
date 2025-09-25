@@ -416,8 +416,12 @@ class SearchWidget(QWidget):
                 return
             search_results = self.indexer.search_files(query, max_results=100)
         else:
-            # 파일명 검색
-            search_results = self.search_by_filename(query, max_results=100)
+            # 파일명 검색 - JSON 캐시 활용 (사용자 요청: 고속 검색)
+            if hasattr(self.indexer, 'search_files_by_filename_from_json'):
+                search_results = self.indexer.search_files_by_filename_from_json(query, max_results=100)
+            else:
+                # 폴백: 기존 방식
+                search_results = self.search_by_filename(query, max_results=100)
         
         # 결과 표시
         self.results_list.clear()
