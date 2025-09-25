@@ -339,6 +339,10 @@ class ContentViewer(QWidget):
             self.show_error("파일을 찾을 수 없습니다.")
             return
         
+        # 기존 PowerPoint 연결이 있다면 정리 (다른 파일 선택 시)
+        if hasattr(self, 'current_file_path') and self.current_file_path and self.current_file_path != file_path:
+            self.cleanup_powerpoint_connection()
+        
         self.current_file_path = file_path
         
         # 로딩 페이지 표시
@@ -472,12 +476,26 @@ class ContentViewer(QWidget):
 ⚡ win32com을 사용한 고속 렌더링으로 곧 표시됩니다!
             """)
             
-            # 모든 슬라이드 배치 렌더링으로 변경 (훨씬 효율적!)
-            print(f"🚀 PowerPoint 파일 감지! 배치 렌더링 시작: {self.current_file_path}")
-            self.batch_render_all_slides(self.current_file_path)
+            # PowerPoint 지속 연결 시작 (사용자 제안 방식!)
+            print(f"🚀 PowerPoint 파일 감지! 지속 연결 시작: {self.current_file_path}")
+            ppt_handler = self.file_manager.handlers['powerpoint']
             
-            # 첫 번째 슬라이드 즉시 표시
-            self.show_cached_slide(0)
+            if ppt_handler.open_persistent_connection(self.current_file_path):
+                # 첫 번째 슬라이드 즉시 렌더링
+                self.render_slide_instantly(0)
+                # 성공 메시지 업데이트
+                current_text = self.original_label.text()
+                updated_text = current_text.replace(
+                    "⚡ win32com을 사용한 고속 렌더링으로 곧 표시됩니다!",
+                    "✅ PowerPoint 연결 완료! 슬라이드 즉시 렌더링 준비됨"
+                )
+                self.original_label.setText(updated_text)
+            else:
+                # 연결 실패 시 기존 방식으로 폴백
+                print("⚠️ PowerPoint 지속 연결 실패 - 기존 방식으로 폴백")
+                self.original_label.setText("PowerPoint 연결 실패 - 개별 렌더링으로 전환됩니다")
+                # 첫 번째 슬라이드 폴백 렌더링
+                self.render_individual_slide_fallback(0)
             
             # 슬라이드가 여러 개인 경우 네비게이션 컨트롤 표시
             if slide_count > 1:
@@ -525,41 +543,17 @@ class ContentViewer(QWidget):
         self.content_stack.setCurrentWidget(self.document_viewer)
     
         
-    def batch_render_all_slides(self, file_path: str):
-        """PowerPoint 파일의 모든 슬라이드를 한 번에 배치 렌더링합니다."""
+    def render_slide_instantly(self, slide_num: int):
+        """지속 연결된 PowerPoint에서 슬라이드를 즉시 렌더링합니다. (사용자 제안 방식!)"""
         try:
-            print(f"🎯 PowerPoint 배치 렌더링 시작: {file_path}")
+            print(f"⚡ PowerPoint 즉시 렌더링: 슬라이드 {slide_num}")
             ppt_handler = self.file_manager.handlers['powerpoint']
             
-            # 배치 렌더링 실행 (한 번에 모든 슬라이드!)
-            all_slides = ppt_handler.render_all_slides_batch(file_path)
-            
-            if all_slides:
-                print(f"✅ 배치 렌더링 성공! {len(all_slides)}개 슬라이드 캐시됨")
-                # 성공 메시지 업데이트
-                current_text = self.original_label.text()
-                updated_text = current_text.replace(
-                    "⚡ win32com을 사용한 고속 렌더링으로 곧 표시됩니다!",
-                    f"✅ 배치 렌더링 완료! {len(all_slides)}개 슬라이드 준비됨"
-                )
-                self.original_label.setText(updated_text)
-            else:
-                print("❌ 배치 렌더링 실패")
-                self.original_label.setText("배치 렌더링 실패 - 개별 렌더링으로 전환됩니다")
-                
-        except Exception as e:
-            print(f"❌ PowerPoint 배치 렌더링 예외: {e}")
-            self.original_label.setText(f"배치 렌더링 오류: {str(e)}")
-    
-    def show_cached_slide(self, slide_num: int):
-        """캐시에서 슬라이드 이미지를 즉시 표시합니다."""
-        try:
-            print(f"💾 캐시에서 슬라이드 {slide_num} 로딩...")
-            ppt_handler = self.file_manager.handlers['powerpoint']
-            image = ppt_handler.get_cached_slide(self.current_file_path, slide_num)
+            # 지속 연결된 PowerPoint에서 즉시 렌더링
+            image = ppt_handler.render_slide_fast(slide_num, width=800, height=600)
             
             if image:
-                print(f"✅ 캐시 히트! 이미지 크기: {image.size}")
+                print(f"✅ 즉시 렌더링 성공! 이미지 크기: {image.size}")
                 # PIL Image를 QPixmap으로 변환
                 import io
                 buffer = io.BytesIO()
@@ -576,28 +570,28 @@ class ContentViewer(QWidget):
                         pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
                     
                     self.original_label.setPixmap(pixmap)
-                    print("🖼️ 캐시 이미지 표시 완료!")
+                    print("🖼️ 즉시 렌더링 이미지 표시 완료!")
                 else:
                     print("❌ QPixmap 변환 실패")
                     self.original_label.setText("이미지 변환 실패")
             else:
-                print("❌ 캐시 미스 - 개별 렌더링 시도")
-                # 개별 렌더링으로 폴백
-                self.render_individual_slide(slide_num)
+                print("❌ 즉시 렌더링 실패 - 개별 렌더링으로 폴백")
+                # 기존 방식으로 폴백
+                self.render_individual_slide_fallback(slide_num)
                 
         except Exception as e:
-            print(f"❌ 캐시 슬라이드 표시 예외: {e}")
-            self.original_label.setText(f"슬라이드 표시 오류: {str(e)}")
+            print(f"❌ 즉시 렌더링 예외: {e}")
+            self.render_individual_slide_fallback(slide_num)
     
-    def render_individual_slide(self, slide_num: int):
-        """개별 슬라이드 렌더링 (배치 렌더링 실패 시 폴백)"""
+    def render_individual_slide_fallback(self, slide_num: int):
+        """지속 연결 실패 시 기존 방식으로 폴백 렌더링"""
         try:
-            print(f"🎯 개별 슬라이드 렌더링: {slide_num}")
+            print(f"🔄 폴백 렌더링: 슬라이드 {slide_num}")
             ppt_handler = self.file_manager.handlers['powerpoint']
             image = ppt_handler.render_slide_to_image(self.current_file_path, slide_num, width=800, height=600)
             
             if image:
-                print(f"✅ 개별 렌더링 성공! 이미지 크기: {image.size}")
+                print(f"✅ 폴백 렌더링 성공! 이미지 크기: {image.size}")
                 # PIL Image를 QPixmap으로 변환
                 import io
                 buffer = io.BytesIO()
@@ -614,17 +608,34 @@ class ContentViewer(QWidget):
                         pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
                     
                     self.original_label.setPixmap(pixmap)
-                    print("🖼️ 이미지 표시 완료!")
+                    print("🖼️ 폴백 이미지 표시 완료!")
                 else:
                     print("❌ QPixmap 변환 실패")
                     self.original_label.setText("이미지 변환 실패")
             else:
-                print("❌ 개별 렌더링 실패")
+                print("❌ 폴백 렌더링도 실패")
                 self.original_label.setText("슬라이드 렌더링 실패")
                 
         except Exception as e:
-            print(f"❌ 개별 렌더링 예외: {e}")
+            print(f"❌ 폴백 렌더링 예외: {e}")
             self.original_label.setText(f"슬라이드 렌더링 오류: {str(e)}")
+    
+    def cleanup_powerpoint_connection(self):
+        """다른 파일 선택 시 PowerPoint 연결을 정리합니다."""
+        try:
+            ppt_handler = self.file_manager.handlers['powerpoint']
+            ppt_handler.close_persistent_connection()
+            print("PowerPoint 연결 정리 완료")
+        except Exception as e:
+            print(f"PowerPoint 연결 정리 오류: {e}")
+    
+    def closeEvent(self, event):
+        """위젯 종료 시 PowerPoint 연결을 정리합니다."""
+        try:
+            self.cleanup_powerpoint_connection()
+        except:
+            pass
+        super().closeEvent(event)
     
     def setup_text_file_viewer(self, file_info: Dict[str, Any]):
         """텍스트 파일 뷰어를 설정합니다."""
@@ -776,9 +787,17 @@ class ContentViewer(QWidget):
                 self.doc_text_viewer.setPlainText(f"페이지 {page_num} 텍스트 로딩 오류: {str(e)}")
         
         elif file_type == 'powerpoint':
-            # PowerPoint 슬라이드 변경 시 캐시에서 즉시 로딩 (배치 렌더링 완료 후)
-            print(f"🔄 PowerPoint 슬라이드 변경: {page_num} (캐시에서 즉시 로딩)")
-            self.show_cached_slide(page_num - 1)  # 0부터 시작
+            # PowerPoint 슬라이드 변경 시 즉시 렌더링 (지속 연결 방식)
+            print(f"🔄 PowerPoint 슬라이드 변경: {page_num} (즉시 렌더링)")
+            
+            # 연결 상태 확인 후 적절한 렌더링 방식 선택
+            ppt_handler = self.file_manager.handlers['powerpoint']
+            if ppt_handler.is_connected():
+                self.render_slide_instantly(page_num - 1)  # 0부터 시작
+            else:
+                print("⚠️ PowerPoint 연결 끊어짐 - 폴백 렌더링")
+                self.render_individual_slide_fallback(page_num - 1)
+                
             self.load_powerpoint_slide_text(page_num)
     
     def open_original_file(self):

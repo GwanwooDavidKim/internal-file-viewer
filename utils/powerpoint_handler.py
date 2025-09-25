@@ -39,6 +39,15 @@ class PowerPointHandler:
         self.slide_cache = {}  # 파일별 슬라이드 이미지 캐시
         self.cache_directory = Path(tempfile.gettempdir()) / "ppt_viewer_cache"
         self.cache_directory.mkdir(exist_ok=True)
+        
+        # 지속 연결을 위한 PowerPoint 인스턴스 관리
+        self.current_ppt_app = None
+        self.current_presentation = None
+        self.current_file_path = None
+        
+        # 즉시 렌더링용 LRU 캐시 (메모리 효율성)
+        self.fast_render_cache = {}
+        self.cache_max_size = 20  # 최대 20개 슬라이드 캐시
     
     def can_handle(self, file_path: str) -> bool:
         """
@@ -822,6 +831,188 @@ class PowerPointHandler:
         except Exception as e:
             print(f"PowerPoint COM 자동화 전체 오류: {e}")
             return None
+    
+    def open_persistent_connection(self, file_path: str) -> bool:
+        """
+        PowerPoint 파일에 대한 지속적인 연결을 엽니다.
+        (사용자 제안: 파일 선택 시 PowerPoint 열어두고 슬라이드별 즉시 렌더링)
+        
+        Args:
+            file_path (str): PowerPoint 파일 경로
+            
+        Returns:
+            bool: 연결 성공 여부
+        """
+        try:
+            # 기존 연결이 있다면 정리
+            self.close_persistent_connection()
+            
+            # Windows 플랫폼 체크
+            import sys
+            if sys.platform != 'win32':
+                print("⚠️ PowerPoint COM은 Windows에서만 사용 가능합니다")
+                return False
+                
+            try:
+                import win32com.client
+                import pythoncom
+            except ImportError:
+                print("⚠️ Windows COM 라이브러리를 찾을 수 없습니다 (pywin32 설치 필요)")
+                return False
+            
+            # COM 초기화
+            pythoncom.CoInitialize()
+            
+            print(f"🚀 PowerPoint 지속 연결 시작: {file_path}")
+            
+            # PowerPoint 애플리케이션 시작
+            self.current_ppt_app = win32com.client.Dispatch("PowerPoint.Application")
+            
+            # 최소화 모드로 실행 (사용자 방해 최소화)
+            try:
+                self.current_ppt_app.Visible = False
+                print("PowerPoint 숨김 모드로 실행")
+            except Exception as e:
+                print(f"숨김 모드 실패, 최소화 모드로 실행: {e}")
+                self.current_ppt_app.Visible = True
+                try:
+                    self.current_ppt_app.DisplayAlerts = 0
+                    self.current_ppt_app.WindowState = 2  # 최소화
+                    print("PowerPoint 창 최소화 완료")
+                except:
+                    pass
+            
+            # PowerPoint 파일 열기
+            self.current_presentation = self.current_ppt_app.Presentations.Open(
+                os.path.abspath(file_path), ReadOnly=True
+            )
+            self.current_file_path = file_path
+            
+            slide_count = self.current_presentation.Slides.Count
+            print(f"✅ PowerPoint 지속 연결 완료! 슬라이드 수: {slide_count}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ PowerPoint 지속 연결 실패: {e}")
+            self.close_persistent_connection()
+            return False
+    
+    def close_persistent_connection(self):
+        """PowerPoint 지속 연결을 종료합니다."""
+        try:
+            if self.current_presentation:
+                self.current_presentation.Close()
+                print("프레젠테이션 닫기 완료")
+                self.current_presentation = None
+                
+            if self.current_ppt_app:
+                self.current_ppt_app.Quit()
+                print("PowerPoint 애플리케이션 종료 완료")
+                self.current_ppt_app = None
+                
+            self.current_file_path = None
+            
+            # COM 정리
+            try:
+                import pythoncom
+                pythoncom.CoUninitialize()
+            except:
+                pass
+                
+        except Exception as e:
+            print(f"PowerPoint 연결 정리 오류: {e}")
+    
+    def render_slide_fast(self, slide_number: int, width: int = 800, height: int = 600) -> Optional['Image.Image']:
+        """
+        이미 열린 PowerPoint에서 특정 슬라이드를 즉시 렌더링합니다.
+        (사용자 제안: 슬라이드 변경 시 즉시 렌더링)
+        
+        Args:
+            slide_number (int): 슬라이드 번호 (0부터 시작)
+            width (int): 렌더링 너비
+            height (int): 렌더링 높이
+            
+        Returns:
+            Optional[Image.Image]: 렌더링된 이미지 또는 None
+        """
+        if not PIL_AVAILABLE:
+            return None
+            
+        if not self.current_presentation:
+            print("❌ PowerPoint 연결이 없습니다")
+            return None
+            
+        try:
+            # 캐시 확인 (빠른 응답)
+            cache_key = f"{self.current_file_path}_{slide_number}"
+            if cache_key in self.fast_render_cache:
+                print(f"💾 캐시 히트: 슬라이드 {slide_number}")
+                return self.fast_render_cache[cache_key]
+            
+            # 슬라이드 번호 유효성 검사
+            slide_count = self.current_presentation.Slides.Count
+            if slide_number < 0 or slide_number >= slide_count:
+                print(f"❌ 유효하지 않은 슬라이드 번호: {slide_number} (총 {slide_count}개)")
+                return None
+                
+            slide = self.current_presentation.Slides(slide_number + 1)  # 1부터 시작
+            
+            # 임시 파일 경로
+            import time
+            safe_filename = f"fast_slide_{slide_number}_{int(time.time() * 1000)}.png"
+            image_path = self.cache_directory / safe_filename
+            
+            # 슬라이드 내보내기 (즉시!)
+            print(f"⚡ 슬라이드 {slide_number + 1} 즉시 렌더링...")
+            
+            # 고해상도 설정
+            dpi = 150
+            actual_width = max(width, 800)
+            actual_height = max(height, 600)
+            
+            slide.Export(str(image_path), "PNG", actual_width, actual_height)
+            
+            # 이미지 로딩 (파일 핸들 누수 방지)
+            if image_path.exists():
+                # 이미지를 완전히 메모리로 로딩 후 파일 핸들 해제
+                with Image.open(str(image_path)) as img:
+                    img.load()  # 픽셀 데이터를 메모리로 로딩
+                    image = img.copy()  # 독립적인 복사본 생성
+                
+                print(f"✅ 즉시 렌더링 성공! 크기: {image.size}")
+                
+                # 이제 안전하게 임시 파일 정리
+                try:
+                    image_path.unlink()
+                except:
+                    pass
+                
+                # LRU 캐시에 저장 (메모리 효율성)
+                self._add_to_cache(cache_key, image)
+                    
+                return image
+            else:
+                print("❌ 이미지 파일 생성 실패")
+                return None
+                
+        except Exception as e:
+            print(f"❌ 즉시 렌더링 오류: {e}")
+            return None
+    
+    def _add_to_cache(self, cache_key: str, image: 'Image.Image'):
+        """LRU 캐시에 이미지를 추가합니다."""
+        # 캐시 크기 제한
+        if len(self.fast_render_cache) >= self.cache_max_size:
+            # 가장 오래된 항목 제거 (간단한 FIFO)
+            oldest_key = next(iter(self.fast_render_cache))
+            del self.fast_render_cache[oldest_key]
+        
+        self.fast_render_cache[cache_key] = image
+    
+    def is_connected(self) -> bool:
+        """PowerPoint 연결 상태를 확인합니다."""
+        return self.current_presentation is not None
     
     def render_all_slides_batch(self, file_path: str) -> Dict[int, 'Image.Image']:
         """
