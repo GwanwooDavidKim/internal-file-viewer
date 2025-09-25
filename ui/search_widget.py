@@ -6,7 +6,7 @@
 """
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, 
                             QPushButton, QListWidget, QListWidgetItem, QLabel,
-                            QProgressBar, QFrame, QSplitter, QTextEdit)
+                            QProgressBar, QFrame, QSplitter, QTextEdit, QComboBox, QMessageBox)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont
 import os
@@ -91,23 +91,21 @@ class SearchWidget(QWidget):
         
         search_layout.addLayout(search_input_layout)
         
-        # 검색 옵션
-        search_options_layout = QHBoxLayout()
+        # 검색 모드 선택
+        search_mode_layout = QHBoxLayout()
         
-        self.search_content_radio = QPushButton("📄 파일 내용 검색")
-        self.search_content_radio.setCheckable(True)
-        self.search_content_radio.setChecked(True)
-        self.search_content_radio.clicked.connect(self.on_search_mode_changed)
-        search_options_layout.addWidget(self.search_content_radio)
+        mode_label = QLabel("검색 모드:")
+        search_mode_layout.addWidget(mode_label)
         
-        self.search_filename_radio = QPushButton("📝 파일명 검색")
-        self.search_filename_radio.setCheckable(True)
-        self.search_filename_radio.clicked.connect(self.on_search_mode_changed)
-        search_options_layout.addWidget(self.search_filename_radio)
+        self.search_mode_combo = QComboBox()
+        self.search_mode_combo.addItems(["📄 파일 내용 검색", "📝 파일명 검색"])
+        self.search_mode_combo.setCurrentIndex(0)  # 기본은 파일 내용 검색
+        self.search_mode_combo.currentTextChanged.connect(self.on_search_mode_changed)
+        search_mode_layout.addWidget(self.search_mode_combo)
         
-        search_options_layout.addStretch()
+        search_mode_layout.addStretch()
         
-        search_layout.addLayout(search_options_layout)
+        search_layout.addLayout(search_mode_layout)
         
         # 인덱싱 컨트롤
         indexing_layout = QHBoxLayout()
@@ -411,7 +409,11 @@ class SearchWidget(QWidget):
         
         # 검색 모드에 따라 다른 검색 수행
         if self.search_mode == "content":
-            # 파일 내용 검색
+            # 파일 내용 검색 - 인덱싱 완료 체크
+            if not self.indexer or len(self.indexer.file_index) == 0:
+                QMessageBox.warning(self, "인덱싱 필요", 
+                                   "파일 내용 검색을 위해서는 먼저 인덱싱을 완료해야 합니다.\n\n'📂 폴더 인덱싱' 버튼을 클릭하여 인덱싱을 시작하세요.")
+                return
             search_results = self.indexer.search_files(query, max_results=100)
         else:
             # 파일명 검색
@@ -537,18 +539,18 @@ class SearchWidget(QWidget):
     
     def on_search_mode_changed(self):
         """검색 모드 변경 시 호출됩니다."""
-        if self.search_content_radio.isChecked():
+        current_text = self.search_mode_combo.currentText()
+        
+        if "파일 내용" in current_text:
             self.search_mode = "content"
-            self.search_filename_radio.setChecked(False)
             self.search_input.setPlaceholderText("파일 내용 검색... (2글자 이상)")
-        else:
+        elif "파일명" in current_text:
             self.search_mode = "filename"
-            self.search_content_radio.setChecked(False)
-            self.search_input.setPlaceholderText("파일명 검색... (2글자 이상)")
+            self.search_input.setPlaceholderText("파일명 검색... (확장자 제외, 2글자 이상)")
     
     def search_by_filename(self, query: str, max_results: int = 100):
         """
-        파일명으로 검색을 수행합니다.
+        파일명으로 검색을 수행합니다 (확장자 제외).
         
         Args:
             query (str): 검색 쿼리
@@ -569,8 +571,11 @@ class SearchWidget(QWidget):
                 for file in files:
                     file_path = os.path.join(root, file)
                     
-                    # 파일명에 검색어가 포함되어 있는지 확인
-                    if query_lower in file.lower():
+                    # 확장자를 제외한 파일명 추출
+                    filename_without_ext = os.path.splitext(file)[0]
+                    
+                    # 확장자를 제외한 파일명에 검색어가 포함되어 있는지 확인
+                    if query_lower in filename_without_ext.lower():
                         # 지원되는 파일만 결과에 포함
                         if self.indexer.file_manager.is_supported_file(file_path):
                             file_info = self.indexer.file_manager.get_file_info(file_path)
@@ -582,7 +587,7 @@ class SearchWidget(QWidget):
                                     'file_type': file_info['file_type'],
                                     'file_size_mb': file_info['file_size_mb'],
                                     'relevance_score': 1.0,  # 파일명 매칭이므로 높은 점수
-                                    'preview': f"파일명 매칭: {file}"
+                                    'preview': f"파일명 매칭: {filename_without_ext}"
                                 }
                                 results.append(result)
                                 

@@ -118,10 +118,41 @@ class ContentViewer(QWidget):
         title_info_layout.addWidget(self.title_label)
         title_info_layout.addWidget(self.details_label)
         
-        # 원본 열기 버튼 (오른쪽 상단)
+        # 파일 작업 버튼들 (오른쪽 상단)
+        buttons_layout = QHBoxLayout()
+        
+        # 폴더 열기 버튼
+        self.open_folder_button = QPushButton("📁 폴더 열기")
+        self.open_folder_button.setFont(QFont(config.UI_FONTS["font_family"], 10))
+        self.open_folder_button.setFixedSize(100, 35)
+        self.open_folder_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+            QPushButton:pressed {
+                background-color: #E65100;
+            }
+            QPushButton:disabled {
+                background-color: #CCCCCC;
+                color: #666666;
+            }
+        """)
+        self.open_folder_button.clicked.connect(self.open_folder_location)
+        self.open_folder_button.hide()  # 기본적으로 숨김 (파일 선택 시 표시)
+        buttons_layout.addWidget(self.open_folder_button)
+        
+        # 원본 열기 버튼
         self.open_file_button = QPushButton("📂 원본 열기")
         self.open_file_button.setFont(QFont(config.UI_FONTS["font_family"], 10))
-        self.open_file_button.setFixedSize(120, 35)
+        self.open_file_button.setFixedSize(100, 35)
         self.open_file_button.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
@@ -129,6 +160,7 @@ class ContentViewer(QWidget):
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
+                font-size: 11px;
             }
             QPushButton:hover {
                 background-color: #45a049;
@@ -136,13 +168,18 @@ class ContentViewer(QWidget):
             QPushButton:pressed {
                 background-color: #3d8b40;
             }
+            QPushButton:disabled {
+                background-color: #CCCCCC;
+                color: #666666;
+            }
         """)
         self.open_file_button.clicked.connect(self.open_original_file)
         self.open_file_button.hide()  # 기본적으로 숨김 (파일 선택 시 표시)
+        buttons_layout.addWidget(self.open_file_button)
         
         header_layout.addLayout(title_info_layout)
         header_layout.addStretch()  # 공간 확보
-        header_layout.addWidget(self.open_file_button)
+        header_layout.addLayout(buttons_layout)
         
         info_layout.addLayout(header_layout)
         
@@ -307,8 +344,9 @@ class ContentViewer(QWidget):
         # 로딩 페이지 표시
         self.content_stack.setCurrentWidget(self.loading_page)
         self.control_frame.hide()
-        # 로딩 시작 시 버튼 숨김
+        # 로딩 시작 시 버튼들 숨김
         self.open_file_button.hide()
+        self.open_folder_button.hide()
         
         # 기존 워커가 있으면 정리
         if self.load_worker:
@@ -336,8 +374,9 @@ class ContentViewer(QWidget):
         
         self.details_label.setText(details)
         
-        # 파일 로딩 완료 시 원본 열기 버튼 표시
+        # 파일 로딩 완료 시 버튼들 표시
         self.open_file_button.show()
+        self.open_folder_button.show()
         
         # 파일 타입별 뷰어 설정
         file_type = file_info['file_type']
@@ -688,11 +727,34 @@ pip install Pillow
                 # Linux에서는 xdg-open 사용
                 subprocess.call(["xdg-open", self.current_file_path])
                 
-            print(f"✅ 원본 파일 열기: {self.current_file_path}")
+        except Exception as e:
+            print(f"❌ 파일 열기 실패: {e}")
+    
+    def open_folder_location(self):
+        """선택된 파일이 있는 폴더를 엽니다."""
+        if not self.current_file_path or not os.path.exists(self.current_file_path):
+            return
+        
+        try:
+            import subprocess
+            import sys
+            
+            folder_path = os.path.dirname(self.current_file_path)
+            
+            if sys.platform == "win32":
+                # Windows에서는 explorer 사용
+                subprocess.run(['explorer', folder_path])
+            elif sys.platform == "darwin":
+                # macOS에서는 open 명령 사용
+                subprocess.call(["open", folder_path])
+            else:
+                # Linux에서는 xdg-open 사용
+                subprocess.call(["xdg-open", folder_path])
+                
+            print(f"✅ 폴더 열기: {folder_path}")
             
         except Exception as e:
-            print(f"❌ 원본 파일 열기 실패: {e}")
-            # 사용자에게 오류 알림을 표시할 수도 있음
+            print(f"❌ 폴더 열기 실패: {e}")
     
     def load_powerpoint_slide_text(self, slide_num: int):
         """PowerPoint 슬라이드의 텍스트를 로드합니다."""
