@@ -514,28 +514,38 @@ class SearchWidget(QWidget):
     def open_folder_location(self):
         """선택된 파일이 있는 폴더를 엽니다."""
         if not self.current_selected_file or not os.path.exists(self.current_selected_file):
+            print(f"❌ 폴더 열기 실패: 파일 경로가 없거나 존재하지 않습니다. {self.current_selected_file}")
             return
         
         try:
             import subprocess
             import sys
             
-            folder_path = os.path.dirname(self.current_selected_file)
+            # 절대 경로로 변환
+            file_path = os.path.abspath(self.current_selected_file)
+            folder_path = os.path.dirname(file_path)
+            
+            print(f"📁 파일 경로: {file_path}")
+            print(f"📂 폴더 경로: {folder_path}")
             
             if sys.platform == "win32":
-                # Windows에서는 explorer 사용
-                subprocess.run(['explorer', folder_path])
+                # Windows에서는 explorer의 /select 옵션을 사용하여 파일을 선택한 상태로 폴더 열기
+                file_path_normalized = os.path.normpath(file_path)
+                subprocess.run(['explorer', '/select,', file_path_normalized])
+                print(f"✅ Windows 폴더 열기 성공: {folder_path}")
             elif sys.platform == "darwin":
                 # macOS에서는 open 명령 사용
                 subprocess.call(["open", folder_path])
+                print(f"✅ macOS 폴더 열기 성공: {folder_path}")
             else:
                 # Linux에서는 xdg-open 사용
                 subprocess.call(["xdg-open", folder_path])
-                
-            print(f"✅ 폴더 열기: {folder_path}")
+                print(f"✅ Linux 폴더 열기 성공: {folder_path}")
             
         except Exception as e:
             print(f"❌ 폴더 열기 실패: {e}")
+            print(f"❌ 파일 경로: {self.current_selected_file}")
+            print(f"❌ 폴더 경로: {os.path.dirname(self.current_selected_file)}")
     
     def on_search_mode_changed(self):
         """검색 모드 변경 시 호출됩니다."""
