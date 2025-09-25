@@ -61,10 +61,7 @@ class SearchWidget(QWidget):
         self.search_mode = "content"  # "content" 또는 "filename"
         self.setup_ui()
         
-        # 검색 지연 타이머 (타이핑 완료 후 검색)
-        self.search_timer = QTimer()
-        self.search_timer.setSingleShot(True)
-        self.search_timer.timeout.connect(self.perform_search)
+        # 자동 검색 제거 (사용자 요청: 검색 버튼과 엔터키만 사용)
     
     def setup_ui(self):
         """UI 구성 요소를 설정합니다."""
@@ -389,13 +386,8 @@ class SearchWidget(QWidget):
     
     def on_search_text_changed(self, text: str):
         """검색 텍스트 변경 시 호출됩니다."""
-        # 타이핑 중이면 타이머 리셋
-        self.search_timer.stop()
-        
-        if len(text.strip()) >= 2:
-            # 500ms 후 자동 검색
-            self.search_timer.start(500)
-        else:
+        # 자동 검색 제거 - 결과 초기화만 수행
+        if len(text.strip()) < 2:
             self.results_list.clear()
             self.results_label.setText("검색 결과")
     
