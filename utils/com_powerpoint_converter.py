@@ -44,9 +44,13 @@ try:
     import win32api
     import win32con
     WIN32_AVAILABLE = True
+    win32_api = win32api
+    win32_con = win32con
     logger.info("✅ pywin32 라이브러리 로드 완료 - UNC 경로 변환 가능")
 except ImportError as e:
     WIN32_AVAILABLE = False
+    win32_api = None
+    win32_con = None
     logger.warning(f"⚠️ pywin32 라이브러리 없음: {e} - net use 명령어로 대체")
 
 
@@ -121,9 +125,9 @@ class ComPowerPointConverter:
             logger.info(f"🔍 네트워크 드라이브 감지: {drive}")
             
             # 방법 1 시도: pywin32를 사용한 UNC 변환
-            if WIN32_AVAILABLE:
+            if WIN32_AVAILABLE and win32_api and win32_con:
                 try:
-                    unc_path = win32api.WNetGetUniversalName(abs_path, win32con.UNIVERSAL_NAME_INFO_LEVEL)
+                    unc_path = win32_api.WNetGetUniversalName(abs_path, win32_con.UNIVERSAL_NAME_INFO_LEVEL)
                     logger.info(f"✅ pywin32로 UNC 변환 성공: {abs_path} → {unc_path}")
                     return unc_path
                 except Exception as e:
@@ -169,6 +173,8 @@ class ComPowerPointConverter:
         try:
             # PowerPoint 애플리케이션 객체 생성 시도
             with self._lock:
+                if not comtypes_client:
+                    raise RuntimeError("comtypes 라이브러리를 사용할 수 없습니다") 
                 ppt_app = comtypes_client.CreateObject("PowerPoint.Application")
                 if ppt_app:
                     # 즉시 종료 (테스트 목적이므로)
