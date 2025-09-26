@@ -134,6 +134,11 @@ class AsposePowerPointConverter:
                 logger.info("   📂 프레젠테이션 로드 중...")
                 abs_ppt_path = os.path.abspath(ppt_file_path)
                 
+                # slides 모듈이 None이 아님을 확인 (타입 체킹용)
+                if slides is None:
+                    logger.error("❌ slides 모듈이 None입니다")
+                    return None
+                
                 with slides.Presentation(abs_ppt_path) as presentation:
                     # PDF로 저장
                     logger.info("   💾 PDF로 변환 중...")
@@ -191,6 +196,10 @@ class AsposePowerPointConverter:
             logger.error("❌ Aspose 변환기를 사용할 수 없습니다")
             return None
         
+        if slides is None:
+            logger.error("❌ slides 모듈이 None입니다")
+            return None
+        
         try:
             with self._lock:
                 with slides.Presentation(ppt_file_path) as presentation:
@@ -234,6 +243,10 @@ class AsposePowerPointConverter:
         if not self.is_available():
             return 0
         
+        if slides is None:
+            logger.error("❌ slides 모듈이 None입니다")
+            return 0
+        
         try:
             with self._lock:
                 with slides.Presentation(ppt_file_path) as presentation:
@@ -253,6 +266,10 @@ class AsposePowerPointConverter:
             str: 추출된 텍스트
         """
         if not self.is_available():
+            return ""
+        
+        if slides is None:
+            logger.error("❌ slides 모듈이 None입니다")
             return ""
         
         try:

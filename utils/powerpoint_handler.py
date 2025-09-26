@@ -163,9 +163,12 @@ class PowerPointHandler:
         if (file_path.lower().endswith('.ppt') or 
             self.converter_type.startswith("Aspose")):
             if hasattr(self.active_converter, 'get_slide_count'):
-                count = self.active_converter.get_slide_count(file_path)
-                if count > 0:
-                    return count
+                try:
+                    count = self.active_converter.get_slide_count(file_path)
+                    if count > 0:
+                        return count
+                except Exception as e:
+                    logger.error(f"Aspose 슬라이드 수 확인 오류: {e}")
         
         # .pptx 파일은 python-pptx로 직접 처리
         try:
@@ -259,13 +262,14 @@ class PowerPointHandler:
             
             for shape in slide.shapes:
                 # 텍스트가 있는 shape만 처리
-                if hasattr(shape, "text") and hasattr(shape, "text_frame") and shape.text.strip():
+                if (hasattr(shape, "text") and hasattr(shape, "text_frame") and 
+                    hasattr(shape, 'text') and shape.text and shape.text.strip()):
                     # 제목이 아닌 경우에만 추가
                     if shape != slide.shapes.title:
                         text_content.append(shape.text)
                         
                         # 텍스트 프레임이 있는 경우 단락별로 분석
-                        if shape.text_frame:
+                        if hasattr(shape, 'text_frame') and shape.text_frame:
                             for paragraph in shape.text_frame.paragraphs:
                                 if paragraph.text.strip():
                                     bullet_points.append({
@@ -352,7 +356,8 @@ class PowerPointHandler:
                 
                 # 슬라이드 내용
                 for shape in slide.shapes:
-                    if hasattr(shape, "text") and hasattr(shape, "text_frame") and shape.text.strip():
+                    if (hasattr(shape, "text") and hasattr(shape, "text_frame") and 
+                        hasattr(shape, 'text') and shape.text and shape.text.strip()):
                         if shape != slide.shapes.title:
                             slide_text.append(shape.text)
                 
@@ -428,7 +433,8 @@ class PowerPointHandler:
                 
                 # 텍스트 블록 수
                 text_shapes = sum(1 for shape in slide.shapes 
-                                if hasattr(shape, "text") and hasattr(shape, "text_frame") and shape.text.strip())
+                                if (hasattr(shape, "text") and hasattr(shape, "text_frame") and 
+                                    hasattr(shape, 'text') and shape.text and shape.text.strip()))
                 
                 slides_summary.append({
                     'slide_number': i + 1,
@@ -499,7 +505,10 @@ class PowerPointHandler:
                 doc = self.pdf_handler._open_document(pdf_path)
                 if doc:
                     slide_count = len(doc)
-                    doc.close()
+                    try:
+                        doc.close()
+                    except:
+                        pass
             
             # 변환 정보
             conversion_info = self.active_converter.get_cache_info()
