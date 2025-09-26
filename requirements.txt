@@ -28,9 +28,11 @@ xlsxwriter==3.2.9      # pandas Excel 지원
 # 보안 라이브러리
 bcrypt==4.3.0           # 비밀번호 해시
 
-# PowerPoint 처리는 LibreOffice 또는 COM 방식 사용 (무료 솔루션)
+# PowerPoint 처리 (Aspose.Slides 평가판 - 워터마크 허용, 사용자 간섭 없음)
+aspose-slides  # PowerPoint → PDF 변환 (평가판, 워터마크 허용)
 
 # PyQt6 의존성
 PyQt6-Qt6==6.9.2
 PyQt6-sip==13.10.2
 comtypes
+aspose-slides

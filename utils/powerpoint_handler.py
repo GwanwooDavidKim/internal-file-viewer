@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .ppt_to_pdf_converter import get_converter
 from .com_powerpoint_converter import get_com_converter
-# Aspose.Slides 제거됨 (유료 라이선스 필요)
+from .aspose_powerpoint_converter import get_aspose_converter
 from .pdf_handler import PdfHandler
 import logging
 import time
@@ -49,18 +49,20 @@ class PowerPointHandler:
     def __init__(self):
         """PowerPointHandler 인스턴스를 초기화합니다."""
         # PDF 변환기와 PDF 핸들러 초기화 (먼저 생성)
-        # 우선순위: COM (높음) → LibreOffice (폴백) - 무료 솔루션만 사용
-        self.com_converter = get_com_converter()
-        self.pdf_converter = get_converter()  # 폴백용
+        # 우선순위: Aspose (평가판, 워터마크 허용) → LibreOffice (무료) → 텍스트만 추출
+        self.aspose_converter = get_aspose_converter()
+        self.pdf_converter = get_converter()  # LibreOffice 변환기
         self.pdf_handler = PdfHandler()
         
         # 사용할 변환기 결정 (우선순위 적용)
-        if self.com_converter.is_available():
-            self.active_converter = self.com_converter
-            self.converter_type = "COM"
-            self.supported_extensions = ['.ppt', '.pptx']  # COM은 모든 PowerPoint 형식 지원
-            print("   🚀 Microsoft Office COM 방식 사용 (고성능)")
+        if self.aspose_converter.is_available():
+            self.active_converter = self.aspose_converter
+            self.converter_type = "Aspose.Slides (평가판)"
+            self.supported_extensions = ['.ppt', '.pptx']  # Aspose는 모든 PowerPoint 형식 지원
+            print("   🚀 Aspose.Slides 방식 사용 (평가판 - 워터마크 허용)")
             print("   📄 지원 형식: .ppt, .pptx")
+            print("   🛡️ Microsoft Office 설치 불필요")
+            print("   💧 워터마크 허용 - 사용자 간섭 없음")
         else:
             self.active_converter = self.pdf_converter
             self.converter_type = "LibreOffice" 
@@ -76,7 +78,12 @@ class PowerPointHandler:
         print("   ✅ 원본 파일 락 없음") 
         print("   ✅ '원본 열기' 기능 완벽 작동")
         print(f"   ⚡ 활성 변환기: {self.converter_type}")
-        print("   💰 무료 솔루션만 사용 (라이선스 비용 없음)")
+        
+        # 변환기별 특징 안내
+        if self.converter_type.startswith("Aspose"):
+            print("   🎯 Aspose 장점: 사용자 간섭 없음 + LibreOffice보다 빠름 (워터마크 포함)")
+        else:
+            print("   💰 무료 솔루션 사용")
     
     def open_persistent_connection(self, file_path: str) -> bool:
         """
@@ -152,6 +159,15 @@ class PowerPointHandler:
         Returns:
             int: 슬라이드 수 (오류 시 0)
         """
+        # .ppt 파일이나 Aspose가 활성인 경우 Aspose 사용
+        if (file_path.lower().endswith('.ppt') or 
+            self.converter_type.startswith("Aspose")):
+            if hasattr(self.active_converter, 'get_slide_count'):
+                count = self.active_converter.get_slide_count(file_path)
+                if count > 0:
+                    return count
+        
+        # .pptx 파일은 python-pptx로 직접 처리
         try:
             prs = Presentation(file_path)
             return len(prs.slides)
