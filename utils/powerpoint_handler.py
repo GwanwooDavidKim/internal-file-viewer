@@ -284,13 +284,14 @@ class PowerPointHandler:
             logger.error(f"슬라이드 텍스트 추출 오류: {e}")
             return {'error': f"슬라이드 텍스트 추출 오류: {e}"}
     
-    def extract_text(self, file_path: str) -> str:
+    def extract_text(self, file_path: str, max_slides: int = None) -> str:
         """
         전체 프레젠테이션에서 텍스트를 추출합니다.
         (검색 인덱싱용)
         
         Args:
             file_path (str): PowerPoint 파일 경로
+            max_slides (int, optional): 최대 슬라이드 수 제한 (None이면 모든 슬라이드)
             
         Returns:
             str: 추출된 전체 텍스트
@@ -299,9 +300,12 @@ class PowerPointHandler:
         if file_path.lower().endswith('.ppt'):
             try:
                 logger.info(f"🔄 .ppt 파일 텍스트 추출: PDF 변환 방식 사용")
+                if max_slides is not None:
+                    logger.info(f"텍스트 추출 제한: 최대 {max_slides}개 슬라이드만 처리")
                 pdf_path = self.active_converter.convert_to_pdf(file_path)
                 if pdf_path:
-                    return self.pdf_handler.extract_text(pdf_path)
+                    # PDF에서 max_slides를 max_pages로 변환하여 전달
+                    return self.pdf_handler.extract_text(pdf_path, max_pages=max_slides)
                 else:
                     return f".ppt 파일 텍스트 추출 실패: {os.path.basename(file_path)}"
             except Exception as e:
@@ -313,7 +317,13 @@ class PowerPointHandler:
             prs = Presentation(file_path)
             all_text = []
             
-            for i, slide in enumerate(prs.slides):
+            # 슬라이드 수 제한 적용
+            slides_to_process = prs.slides
+            if max_slides is not None:
+                slides_to_process = list(prs.slides)[:max_slides]
+                logger.info(f"텍스트 추출 제한: 최대 {max_slides}개 슬라이드만 처리")
+            
+            for i, slide in enumerate(slides_to_process):
                 slide_text = []
                 
                 # 슬라이드 제목
@@ -336,9 +346,9 @@ class PowerPointHandler:
             logger.error(f"PowerPoint 텍스트 추출 오류: {e}")
             return f"PowerPoint 텍스트 추출 오류: {e}"
     
-    def extract_all_text(self, file_path: str) -> str:
+    def extract_all_text(self, file_path: str, max_slides: int = None) -> str:
         """extract_text의 별칭 (호환성을 위해)"""
-        return self.extract_text(file_path)
+        return self.extract_text(file_path, max_slides)
     
     def get_presentation_info(self, file_path: str) -> Dict[str, Any]:
         """
