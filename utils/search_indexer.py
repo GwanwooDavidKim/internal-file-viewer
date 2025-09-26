@@ -326,7 +326,7 @@ class SearchIndexer:
         self.set_cache_directory(directory_path)
         
         # 📂 캐시에서 기존 인덱스 로드 시도
-        cache_loaded = self.load_index_from_cache()
+        cache_loaded, files_to_reindex, new_files = self.load_index_from_cache(directory_path, recursive)
         
         print(f"📂 디렉토리 인덱싱 시작: {directory_path}")
         if cache_loaded:
@@ -339,26 +339,43 @@ class SearchIndexer:
             # 파일 목록 수집
             files_to_index = []
             
-            if recursive:
-                for root, dirs, files in os.walk(directory_path):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        if self.file_manager.is_supported_file(file_path):
+            if cache_loaded:
+                # 🚀 캐시가 있을 때: 변경된 파일 + 새로운 파일만 처리
+                files_to_index = files_to_reindex + new_files
+                print(f"🎨 스마트 인덱싱: 변경된 파일 {len(files_to_reindex)}개 + 새로운 파일 {len(new_files)}개")
+            else:
+                # 💻 첫 인덱싱: 전체 디렉토리 스캔
+                if recursive:
+                    for root, dirs, files in os.walk(directory_path):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            if self.file_manager.is_supported_file(file_path):
+                                # 엑셀 파일은 인덱싱에서 제외 (성능상 이유)
+                                file_type = self.file_manager.get_file_type(file_path)
+                                if file_type != 'excel':
+                                    files_to_index.append(file_path)
+                else:
+                    for item in os.listdir(directory_path):
+                        file_path = os.path.join(directory_path, item)
+                        if os.path.isfile(file_path) and self.file_manager.is_supported_file(file_path):
                             # 엑셀 파일은 인덱싱에서 제외 (성능상 이유)
                             file_type = self.file_manager.get_file_type(file_path)
                             if file_type != 'excel':
                                 files_to_index.append(file_path)
-            else:
-                for item in os.listdir(directory_path):
-                    file_path = os.path.join(directory_path, item)
-                    if os.path.isfile(file_path) and self.file_manager.is_supported_file(file_path):
-                        # 엑셀 파일은 인덱싱에서 제외 (성능상 이유)
-                        file_type = self.file_manager.get_file_type(file_path)
-                        if file_type != 'excel':
-                            files_to_index.append(file_path)
             
             total_files = len(files_to_index)
-            print(f"📄 인덱싱 대상 파일: {total_files}개")
+            if cache_loaded:
+                print(f"📄 인덱싱 대상 파일: {total_files}개 (변경/신규 파일만)")
+            else:
+                print(f"📄 인덱싱 대상 파일: {total_files}개 (전체 파일)")
+            
+            # ⚡ 빠른 바이패스: 인덱싱할 파일이 없으면 스킵 (단, 캐시 업데이트는 필요)
+            if total_files == 0:
+                print("🎉 변경된 파일이 없습니다. 인덱싱 완료!")
+                # 삭제된 파일이 있다면 캐시 업데이트
+                if cache_loaded:
+                    self.save_index_to_cache()
+                return
             
             # 🚀 멀티스레드 인덱싱 (사용자 요청: 3-4개 스레드로 속도 최대화)
             max_workers = min(4, max(1, len(files_to_index) // 10))  # 최적 스레드 수
@@ -392,11 +409,14 @@ class SearchIndexer:
                         print(f"❌ 파일 인덱싱 오류 ({file_path}): {e}")
             
             elapsed_time = time.time() - start_time
-            print(f"✅ 인덱싱 완료: {indexed_count}개 파일, {elapsed_time:.2f}초 소요")
+            if cache_loaded:
+                print(f"✅ 스마트 인덱싱 완료: {indexed_count}개 파일 처리, {elapsed_time:.2f}초 소요 (캐시 사용)")
+            else:
+                print(f"✅ 전체 인덱싱 완료: {indexed_count}개 파일, {elapsed_time:.2f}초 소요")
             
             # 🚀 인덱싱 완료 후 JSON 캐시 저장 (사용자 요청)
-            if indexed_count > 0:
-                self.save_index_to_cache()
+            if indexed_count > 0 or cache_loaded:
+                self.save_index_to_cache()  # 캐시가 있어도 업데이트
             
         except Exception as e:
             print(f"❌ 디렉토리 인덱싱 오류: {e}")
@@ -575,16 +595,20 @@ class SearchIndexer:
         except Exception as e:
             print(f"❌ 인덱스 캐시 저장 실패: {e}")
     
-    def load_index_from_cache(self) -> bool:
+    def load_index_from_cache(self, directory_path: str = None, recursive: bool = True) -> Tuple[bool, List[str], List[str]]:
         """
         JSON 파일에서 인덱스를 로드합니다. (사용자 요청: JSON에서 빠른 검색)
         
+        Args:
+            directory_path (str): 비교할 디렉토리 경로 (새 파일 감지용)
+            recursive (bool): 하위 디렉토리 포함 여부
+        
         Returns:
-            bool: 로드 성공 여부
+            tuple: (로드 성공 여부, 변경된 파일 리스트, 새로운 파일 리스트)
         """
         if not self.cache_file_path or not os.path.exists(self.cache_file_path):
             print("📄 캐시 파일이 없습니다. 새로 인덱싱이 필요합니다.")
-            return False
+            return False, [], []
         
         try:
             print("📂 JSON 캐시에서 인덱스 로드 중...")
@@ -595,7 +619,7 @@ class SearchIndexer:
             # 캐시 버전 체크
             if cache_data.get("index_version") != "1.0":
                 print("⚠️ 캐시 버전 불일치. 새로 인덱싱이 필요합니다.")
-                return False
+                return False, [], []
             
             # 파일 변경 사항 체크 (스마트 재인덱싱)
             files_to_reindex = []
@@ -630,15 +654,111 @@ class SearchIndexer:
             
             print(f"✅ 캐시에서 {valid_files}개 파일 로드 완료")
             
+            # 새로운 파일 및 삭제된 파일 감지 (현재 디렉토리와 캐시 비교)
+            new_files = []
+            deleted_files = []
+            
+            if directory_path:
+                # 현재 디렉토리의 지원 파일들 수집 (recursive 플래그 준수)
+                current_files = set()
+                
+                if recursive:
+                    for root, dirs, files in os.walk(directory_path):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            if self.file_manager.is_supported_file(file_path):
+                                file_type = self.file_manager.get_file_type(file_path)
+                                if file_type != 'excel':  # 엑셀 파일 제외
+                                    # 🔧 경로 정규화: 일관성 있는 비교를 위해
+                                    normalized_path = os.path.normcase(os.path.normpath(os.path.realpath(file_path)))
+                                    current_files.add(normalized_path)
+                else:
+                    for item in os.listdir(directory_path):
+                        file_path = os.path.join(directory_path, item)
+                        if os.path.isfile(file_path) and self.file_manager.is_supported_file(file_path):
+                            file_type = self.file_manager.get_file_type(file_path)
+                            if file_type != 'excel':  # 엑셀 파일 제외
+                                # 🔧 경로 정규화: 일관성 있는 비교를 위해
+                                normalized_path = os.path.normcase(os.path.normpath(os.path.realpath(file_path)))
+                                current_files.add(normalized_path)
+                
+                # 🚨 중요: 삭제 감지 범위를 current_files와 동일하게 제한
+                # recursive=False일 때 하위폴더 파일을 "삭제됨"으로 잘못 판단하는 버그 방지
+                
+                # 경로 정규화 (대소문자, 구분자, 심볼릭링크 처리)
+                normalized_directory = os.path.normcase(os.path.normpath(os.path.realpath(directory_path)))
+                
+                if recursive:
+                    # recursive=True: 모든 캐시된 파일 고려 (정규화)
+                    cached_files = set()
+                    for file_data in cache_data["files"].values():
+                        cached_path = file_data.get("full_path")
+                        if cached_path:
+                            # 🔧 캐시된 경로도 정규화: current_files와 일관성 유지
+                            normalized_cached = os.path.normcase(os.path.normpath(os.path.realpath(cached_path)))
+                            cached_files.add(normalized_cached)
+                else:
+                    # recursive=False: 현재 폴더의 캐시된 파일만 고려 (정규화된 경로 비교)
+                    cached_files = set()
+                    for file_data in cache_data["files"].values():
+                        cached_path = file_data.get("full_path")
+                        if cached_path:
+                            # 🔧 캐시된 경로 정규화
+                            normalized_cached = os.path.normcase(os.path.normpath(os.path.realpath(cached_path)))
+                            cached_parent = os.path.normcase(os.path.normpath(os.path.realpath(os.path.dirname(cached_path))))
+                            if cached_parent == normalized_directory:
+                                cached_files.add(normalized_cached)
+                
+                # 새로운 파일 = 현재 파일 - 캐시된 파일 (정규화된 경로로 정확한 비교)
+                new_files_normalized = list(current_files - cached_files)
+                
+                # 삭제된 파일 = 캐시된 파일 - 현재 파일 (정규화된 경로로 정확한 비교)
+                deleted_files_normalized = list(cached_files - current_files)
+                
+                # 🔄 인덱싱을 위해 원본 절대 경로로 복원 (정규화되지 않은 원본 경로 사용)
+                # new_files: 정규화된 경로에서 원본 절대 경로 매핑
+                normalized_to_original = {}
+                if recursive:
+                    for root, dirs, files in os.walk(directory_path):
+                        for file in files:
+                            original_path = os.path.join(root, file)
+                            if self.file_manager.is_supported_file(original_path):
+                                file_type = self.file_manager.get_file_type(original_path)
+                                if file_type != 'excel':
+                                    normalized = os.path.normcase(os.path.normpath(os.path.realpath(original_path)))
+                                    normalized_to_original[normalized] = original_path
+                else:
+                    for item in os.listdir(directory_path):
+                        original_path = os.path.join(directory_path, item)
+                        if os.path.isfile(original_path) and self.file_manager.is_supported_file(original_path):
+                            file_type = self.file_manager.get_file_type(original_path)
+                            if file_type != 'excel':
+                                normalized = os.path.normcase(os.path.normpath(os.path.realpath(original_path)))
+                                normalized_to_original[normalized] = original_path
+                
+                # 원본 경로로 복원
+                new_files = [normalized_to_original.get(norm_path, norm_path) for norm_path in new_files_normalized]
+                deleted_files = deleted_files_normalized  # 삭제된 파일은 정규화된 경로 사용
+                
+                # 삭제된 파일을 인덱스에서 제거
+                for deleted_file in deleted_files:
+                    if deleted_file in self.indexed_paths:
+                        self.remove_file_from_index(deleted_file)
+            
             if files_to_reindex:
                 print(f"🔄 변경된 파일 {len(files_to_reindex)}개 재인덱싱 필요")
-                # 변경된 파일들은 나중에 별도로 인덱싱
             
-            return True
+            if new_files:
+                print(f"📄 새로운 파일 {len(new_files)}개 발견")
+            
+            if deleted_files:
+                print(f"🗑️ 삭제된 파일 {len(deleted_files)}개 제거")
+            
+            return True, files_to_reindex, new_files
             
         except Exception as e:
             print(f"❌ 캐시 로드 실패: {e}")
-            return False
+            return False, [], []
     
     def get_cache_statistics(self) -> Dict[str, Any]:
         """
