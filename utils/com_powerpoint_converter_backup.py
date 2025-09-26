@@ -11,7 +11,6 @@ LibreOffice 대비 2-3배 빠른 성능과 완벽한 변환 품질을 보장합�
 - 💰 추가 소프트웨어 설치 불필요 (Office 있으면 OK)
 - ⚡ 스마트 캐시 시스템
 - 🛡️ 사용자 작업 완전 분리 (백그라운드 실행)
-- 🔄 F 드라이브 UNC 경로 변환 지원
 """
 
 import os
@@ -40,14 +39,16 @@ except ImportError as e:
     comtypes_client = None
     logger.warning(f"⚠️ comtypes 라이브러리 없음: {e} - COM 방식 사용 불가")
 
-# Windows UNC 변환용 라이브러리
+# pywin32 라이브러리를 안전하게 import (UNC 경로 변환용)
 try:
     import win32wnet
     WIN32_AVAILABLE = True
+    win32_wnet = win32wnet
     logger.info("✅ pywin32 라이브러리 로드 완료 - UNC 경로 변환 가능")
 except ImportError as e:
     WIN32_AVAILABLE = False
-    logger.warning(f"⚠️ pywin32 라이브러리 없음: {e} - 간단한 방식으로 대체")
+    win32_wnet = None
+    logger.warning(f"⚠️ pywin32 라이브러리 없음: {e} - PowerShell 방식으로 대체")
 
 
 class ComPowerPointConverter:
@@ -55,7 +56,6 @@ class ComPowerPointConverter:
     Microsoft Office COM 객체를 사용한 고성능 PPT → PDF 변환기
     
     Windows + Microsoft Office 환경에서 최적의 성능과 품질을 제공합니다.
-    네트워크 드라이브(F: 등) UNC 경로 자동 변환 지원
     """
     
     def __init__(self, cache_dir: Optional[str] = None):
@@ -87,7 +87,6 @@ class ComPowerPointConverter:
         if self.is_available():
             print("   ✅ Microsoft Office COM 방식 사용 가능!")
             print("   ⚡ 고성능 네이티브 변환 준비 완료")
-            print("   🔄 F 드라이브 UNC 변환 지원")
         else:
             print("   ❌ COM 방식 사용 불가 (Office 또는 comtypes 없음)")
         
@@ -103,8 +102,9 @@ class ComPowerPointConverter:
         Returns:
             변환된 UNC 경로 또는 원본 경로
         """
-        # Windows가 아니면 변환하지 않음
+        # Windows에서만 UNC 변환 시도
         if os.name != 'nt':
+            logger.debug(f"Windows가 아닌 환경에서는 UNC 변환 방식을 사용하지 않음: {file_path}")
             return os.path.abspath(file_path)
         
         try:
@@ -112,46 +112,76 @@ class ComPowerPointConverter:
             
             # 드라이브 문자 확인 (예: F:)
             if len(abs_path) < 2 or abs_path[1] != ':':
+                logger.debug(f"드라이브 문자 없음: {abs_path}")
                 return abs_path
             
             drive_letter = abs_path[0].upper()
             logger.debug(f"드라이브 감지: {drive_letter}:")
             
-            # 방법 1: pywin32 사용 (가장 정확함)
-            if WIN32_AVAILABLE:
+            # 방법 1: pywin32 win32wnet 사용
+            if WIN32_AVAILABLE and win32_wnet:
                 try:
-                    unc_path = win32wnet.WNetGetUniversalName(abs_path)
-                    logger.info(f"✅ UNC 변환 성공: {abs_path} → {unc_path}")
+                    unc_path = win32_wnet.WNetGetUniversalName(abs_path)
+                    logger.info(f"✅ pywin32로 UNC 변환 성공: {abs_path} → {unc_path}")
                     return unc_path
                 except Exception as e:
-                    logger.debug(f"pywin32 UNC 변환 실패: {e}")
+                    logger.debug(f"pywin32 UNC 변환 실패: {e}, PowerShell 방식 시도")
             
-            # 방법 2: net use 명령어 사용 (백업 방식)
+            # 방법 2: PowerShell Get-PSDrive 사용 (로케일 독립적)
             try:
+                ps_cmd = f'powershell -NoProfile -Command "Get-PSDrive -PSProvider FileSystem | Where-Object {{$_.Name -eq \''{drive_letter}\'}} | Where-Object {{$_.DisplayRoot}} | Select-Object -ExpandProperty DisplayRoot"'
+                
+                result = subprocess.run(ps_cmd, shell=True, 
+                                      capture_output=True, text=True, timeout=10)
+                
+                if result.returncode == 0 and result.stdout.strip():
+                    unc_base = result.stdout.strip()
+                    # UNC 경로 생성: \\\\server\\share + \\file.pptx
+                    remaining_path = abs_path[2:]  # "\\presentation.pptx"
+                    unc_path = unc_base + remaining_path
+                    logger.info(f"✅ PowerShell로 UNC 변환 성공: {abs_path} → {unc_path}")
+                    return unc_path
+                else:
+                    logger.debug(f"PowerShell Get-PSDrive에서 {drive_letter}: 드라이브 DisplayRoot 없음")
+                    
+            except subprocess.TimeoutExpired:
+                logger.warning("PowerShell 명령어 시간 초과")
+            except Exception as e:
+                logger.debug(f"PowerShell 명령어 실행 실패: {e}")
+            
+            # 방법 3: 레거시 net use 방식 (로컬 인코딩 사용)
+            try:
+                import locale
+                encoding = locale.getpreferredencoding(False)
+                
                 result = subprocess.run(['net', 'use'], 
-                                      capture_output=True, text=True, timeout=5)
+                                      capture_output=True, text=True, 
+                                      encoding=encoding, timeout=10)
                 
                 if result.returncode == 0:
+                    drive_pattern = f"{drive_letter}:"
                     for line in result.stdout.split('\n'):
-                        if f'{drive_letter}:' in line:
-                            # UNC 경로 찾기
-                            unc_match = re.search(r'\\\\[^\s]+', line)
-                            if unc_match:
-                                unc_base = unc_match.group()
-                                remaining_path = abs_path[2:]  # 드라이브 문자 제거
+                        if drive_pattern in line:
+                            # UNC 경로 추출
+                            match = re.search(r'\\\\[^\s]+', line)
+                            if match:
+                                unc_base = match.group()
+                                remaining_path = abs_path[2:]
                                 unc_path = unc_base + remaining_path
-                                logger.info(f"✅ net use로 UNC 변환: {abs_path} → {unc_path}")
+                                logger.info(f"✅ net use로 UNC 변환 성공: {abs_path} → {unc_path}")
                                 return unc_path
-            
+                
+                logger.debug(f"net use에서 {drive_letter}: 드라이브 매핑 정보 없음")
+                
             except Exception as e:
-                logger.debug(f"net use 명령어 실패: {e}")
+                logger.debug(f"net use 명령어 실행 실패: {e}")
             
-            # 변환 실패하면 원본 경로 사용
-            logger.debug(f"UNC 변환 불가, 원본 경로 사용: {abs_path}")
+            # 모든 UNC 변환 시도 실패 - 원본 경로 사용
+            logger.debug(f"UNC 변환 실패, 원본 경로 사용: {abs_path}")
             return abs_path
             
         except Exception as e:
-            logger.error(f"경로 변환 오류: {e}")
+            logger.error(f"경로 변환 중 예상치 못한 오류: {e}")
             return file_path
     
     def _check_office_installation(self) -> bool:
@@ -160,7 +190,7 @@ class ComPowerPointConverter:
             # PowerPoint 애플리케이션 객체 생성 시도
             with self._lock:
                 if not comtypes_client:
-                    raise RuntimeError("comtypes 라이브러리를 사용할 수 없습니다")
+                    raise RuntimeError("comtypes 라이브러리를 사용할 수 없습니다") 
                 ppt_app = comtypes_client.CreateObject("PowerPoint.Application")
                 if ppt_app:
                     # 즉시 종료 (테스트 목적이므로)
@@ -271,8 +301,6 @@ class ComPowerPointConverter:
             with self._lock:  # COM 객체는 스레드 안전하지 않음
                 # PowerPoint 애플리케이션 시작 (백그라운드)
                 logger.info("   📱 PowerPoint 애플리케이션 시작 중...")
-                if not comtypes_client:
-                    raise RuntimeError("comtypes 라이브러리를 사용할 수 없습니다")
                 ppt_app = comtypes_client.CreateObject("PowerPoint.Application")
                 ppt_app.Visible = 0  # 백그라운드 실행
                 ppt_app.DisplayAlerts = 0  # 알림 비활성화
