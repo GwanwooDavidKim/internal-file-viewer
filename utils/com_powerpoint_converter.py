@@ -11,7 +11,6 @@ LibreOffice 대비 2-3배 빠른 성능과 완벽한 변환 품질을 보장합�
 - 💰 추가 소프트웨어 설치 불필요 (Office 있으면 OK)
 - ⚡ 스마트 캐시 시스템
 - 🛡️ 사용자 작업 완전 분리 (백그라운드 실행)
-- 🔄 F 드라이브 UNC 경로 변환 지원
 """
 
 import os
@@ -20,8 +19,6 @@ import hashlib
 import shutil
 import logging
 import time
-import subprocess
-import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -33,21 +30,10 @@ logger = logging.getLogger(__name__)
 try:
     import comtypes.client
     COM_AVAILABLE = True
-    comtypes_client = comtypes.client
     logger.info("✅ comtypes 라이브러리 로드 완료 - COM 방식 사용 가능")
 except ImportError as e:
     COM_AVAILABLE = False
-    comtypes_client = None
     logger.warning(f"⚠️ comtypes 라이브러리 없음: {e} - COM 방식 사용 불가")
-
-# Windows UNC 변환용 라이브러리
-try:
-    import win32wnet
-    WIN32_AVAILABLE = True
-    logger.info("✅ pywin32 라이브러리 로드 완료 - UNC 경로 변환 가능")
-except ImportError as e:
-    WIN32_AVAILABLE = False
-    logger.warning(f"⚠️ pywin32 라이브러리 없음: {e} - 간단한 방식으로 대체")
 
 
 class ComPowerPointConverter:
@@ -55,7 +41,6 @@ class ComPowerPointConverter:
     Microsoft Office COM 객체를 사용한 고성능 PPT → PDF 변환기
     
     Windows + Microsoft Office 환경에서 최적의 성능과 품질을 제공합니다.
-    네트워크 드라이브(F: 등) UNC 경로 자동 변환 지원
     """
     
     def __init__(self, cache_dir: Optional[str] = None):
@@ -72,9 +57,6 @@ class ComPowerPointConverter:
         self.cache_max_size = 1024 * 1024 * 1024  # 1GB
         self.cache_max_age = timedelta(days=7)  # 7일
         
-        # 스레드 락 (COM 객체는 스레드 안전하지 않음) - 먼저 정의
-        self._lock = threading.Lock()
-        
         # COM 사용 가능 여부 확인
         self.com_available = COM_AVAILABLE
         if self.com_available:
@@ -82,92 +64,25 @@ class ComPowerPointConverter:
         else:
             self.office_available = False
         
+        # 스레드 락 (COM 객체는 스레드 안전하지 않음)
+        self._lock = threading.Lock()
+        
         print(f"🚀 ComPowerPointConverter 초기화")
         print(f"   📁 캐시 폴더: {self.cache_dir}")
         if self.is_available():
             print("   ✅ Microsoft Office COM 방식 사용 가능!")
             print("   ⚡ 고성능 네이티브 변환 준비 완료")
-            print("   🔄 F 드라이브 UNC 변환 지원")
         else:
             print("   ❌ COM 방식 사용 불가 (Office 또는 comtypes 없음)")
         
         logger.info(f"COM PowerPoint Converter 초기화: 사용 가능={self.is_available()}")
-    
-    def _convert_to_unc_path(self, file_path: str) -> str:
-        """
-        Windows 네트워크 드라이브를 UNC 경로로 변환
-        
-        Args:
-            file_path: 원본 파일 경로 (예: F:\\presentation.pptx)
-            
-        Returns:
-            변환된 UNC 경로 또는 원본 경로
-        """
-        # Windows가 아니면 변환하지 않음
-        if os.name != 'nt':
-            return os.path.abspath(file_path)
-        
-        try:
-            abs_path = os.path.abspath(file_path)
-            
-            # 드라이브 문자 확인 (예: F:)
-            if len(abs_path) < 2 or abs_path[1] != ':':
-                return abs_path
-            
-            drive_letter = abs_path[0].upper()
-            
-            # 성능 최적화: 로컬 드라이브(C:, D:)는 UNC 변환 스킵
-            if drive_letter in ['C', 'D']:
-                logger.debug(f"로컬 드라이브 {drive_letter}: UNC 변환 스킵 (성능 최적화)")
-                return abs_path
-            
-            logger.debug(f"네트워크 드라이브 감지: {drive_letter}: → UNC 변환 시도")
-            
-            # 방법 1: pywin32 사용 (가장 정확함)
-            if WIN32_AVAILABLE:
-                try:
-                    unc_path = win32wnet.WNetGetUniversalName(abs_path)
-                    logger.info(f"✅ UNC 변환 성공: {abs_path} → {unc_path}")
-                    return unc_path
-                except Exception as e:
-                    logger.debug(f"pywin32 UNC 변환 실패: {e}")
-            
-            # 방법 2: net use 명령어 사용 (백업 방식)
-            try:
-                result = subprocess.run(['net', 'use'], 
-                                      capture_output=True, text=True, timeout=5)
-                
-                if result.returncode == 0:
-                    for line in result.stdout.split('\n'):
-                        if f'{drive_letter}:' in line:
-                            # UNC 경로 찾기
-                            unc_match = re.search(r'\\\\[^\s]+', line)
-                            if unc_match:
-                                unc_base = unc_match.group()
-                                remaining_path = abs_path[2:]  # 드라이브 문자 제거
-                                unc_path = unc_base + remaining_path
-                                logger.info(f"✅ net use로 UNC 변환: {abs_path} → {unc_path}")
-                                return unc_path
-            
-            except Exception as e:
-                logger.debug(f"net use 명령어 실패: {e}")
-            
-            # 변환 실패하면 원본 경로 사용
-            logger.debug(f"UNC 변환 불가, 원본 경로 사용: {abs_path}")
-            return abs_path
-            
-        except Exception as e:
-            logger.error(f"경로 변환 오류: {e}")
-            return file_path
     
     def _check_office_installation(self) -> bool:
         """Microsoft Office 설치 여부 확인"""
         try:
             # PowerPoint 애플리케이션 객체 생성 시도
             with self._lock:
-                if not comtypes_client:
-                    raise RuntimeError("comtypes 라이브러리를 사용할 수 없습니다")
-                ppt_app = comtypes_client.CreateObject("PowerPoint.Application")
+                ppt_app = comtypes.client.CreateObject("PowerPoint.Application")
                 if ppt_app:
                     # 즉시 종료 (테스트 목적이므로)
                     try:
@@ -272,32 +187,13 @@ class ComPowerPointConverter:
         try:
             start_time = time.time()
             ppt_name = os.path.basename(ppt_file_path)
-            print(f"\\n🚀 Microsoft Office COM 변환 시작: {ppt_name}")
-            print(f"   🔄 F 드라이브 → UNC 경로 자동 변환 지원")
             logger.info(f"🚀 COM 변환 시작: {ppt_name}")
             
             with self._lock:  # COM 객체는 스레드 안전하지 않음
                 # PowerPoint 애플리케이션 시작 (백그라운드)
                 logger.info("   📱 PowerPoint 애플리케이션 시작 중...")
-                if not comtypes_client:
-                    raise RuntimeError("comtypes 라이브러리를 사용할 수 없습니다")
-                ppt_app = comtypes_client.CreateObject("PowerPoint.Application")
-                
-                # PowerPoint 2016+ 보안 제한 대응 - 성능 최적화 버전
-                visible_fallback_used = False
-                try:
-                    ppt_app.Visible = 0  # 완전 숨기기 시도 (고성능)
-                    logger.debug("PowerPoint 창 완전 숨기기 성공 - 고성능 모드")
-                except:
-                    # PowerPoint 2016+ 보안 제한 시 최소화로 대체
-                    ppt_app.Visible = 1  # 창 표시
-                    visible_fallback_used = True
-                    try:
-                        ppt_app.WindowState = 2  # ppWindowMinimized = 2 (최소화)
-                        logger.info("⚡ PowerPoint 창 최소화 (보안 제한으로 완전 숨기기 불가) - 성능 저하 예상")
-                    except:
-                        logger.warning("⚠️ PowerPoint 창 최소화도 실패 - 창이 표시되어 성능 저하 발생")
-                
+                ppt_app = comtypes.client.CreateObject("PowerPoint.Application")
+                ppt_app.Visible = 0  # 백그라운드 실행
                 ppt_app.DisplayAlerts = 0  # 알림 비활성화
                 
                 # 보안 설정: 매크로 비활성화 (가능한 경우)
@@ -307,44 +203,15 @@ class ComPowerPointConverter:
                 except:
                     logger.debug("매크로 비활성화 설정 불가 (Office 버전 제한)")
                 
-                # 프레젠테이션 열기 (UNC 경로 변환 적용)
+                # 프레젠테이션 열기
                 logger.info("   📂 프레젠테이션 열기 중...")
-                smart_ppt_path = self._convert_to_unc_path(ppt_file_path)
-                logger.info(f"   🔄 경로 변환: {ppt_file_path} → {smart_ppt_path}")
-                
-                # PowerPoint 2016+ 보안 제한 대응 - 성능 최적화
-                if visible_fallback_used:
-                    # Visible=1이면 WithWindow=0도 실패할 가능성 높음 → 바로 WithWindow=1 사용
-                    logger.info("⚡ 성능 최적화: Visible 폴백 사용 중이므로 WithWindow=1로 직접 열기")
-                    presentation = ppt_app.Presentations.Open(
-                        smart_ppt_path,
-                        ReadOnly=1,  # 읽기 전용
-                        Untitled=1,  # 제목 없이
-                        WithWindow=1  # 창 표시 (이미 최소화됨)
-                    )
-                else:
-                    # Visible=0 성공 시에만 WithWindow=0 시도 (고성능)
-                    try:
-                        presentation = ppt_app.Presentations.Open(
-                            smart_ppt_path,
-                            ReadOnly=1,  # 읽기 전용
-                            Untitled=1,  # 제목 없이
-                            WithWindow=0  # 창 없이 (고성능)
-                        )
-                        logger.debug("프레젠테이션 창 없이 열기 성공 - 고성능 모드")
-                    except Exception as e:
-                        # WithWindow=0 보안 제한 시 WithWindow=1로 대체
-                        if "Hiding the application window is not allowed" in str(e) or "-2147188160" in str(e):
-                            logger.info("⚠️ 프레젠테이션 창 없이 열기 실패 - 최소화 창으로 대체 (성능 저하)")
-                            presentation = ppt_app.Presentations.Open(
-                                smart_ppt_path,
-                                ReadOnly=1,  # 읽기 전용
-                                Untitled=1,  # 제목 없이
-                                WithWindow=1  # 창 표시
-                            )
-                        else:
-                            # 다른 오류는 그대로 전파
-                            raise
+                abs_ppt_path = os.path.abspath(ppt_file_path)
+                presentation = ppt_app.Presentations.Open(
+                    abs_ppt_path,
+                    ReadOnly=1,  # 읽기 전용
+                    Untitled=1,  # 제목 없이
+                    WithWindow=0  # 창 없이
+                )
                 
                 # PDF로 저장
                 logger.info("   💾 PDF로 변환 중...")
@@ -356,9 +223,6 @@ class ComPowerPointConverter:
                 # 변환 완료 확인
                 if cached_pdf.exists() and cached_pdf.stat().st_size > 0:
                     elapsed = time.time() - start_time
-                    print(f"✅ COM 변환 완료! {ppt_name} → PDF ({elapsed:.1f}초)")
-                    print(f"   📄 PDF 크기: {cached_pdf.stat().st_size / 1024:.1f} KB")
-                    print(f"   🚀 Microsoft Office 네이티브 엔진 사용 성공!")
                     logger.info(f"✅ COM 변환 완료! ({elapsed:.1f}초)")
                     logger.info(f"   📄 PDF 크기: {cached_pdf.stat().st_size / 1024:.1f} KB")
                     return str(cached_pdf)

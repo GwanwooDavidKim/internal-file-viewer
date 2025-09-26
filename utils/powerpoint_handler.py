@@ -58,22 +58,14 @@ class PowerPointHandler:
             self.active_converter = self.com_converter
             self.converter_type = "COM"
             self.supported_extensions = ['.ppt', '.pptx']  # COM은 모든 PowerPoint 형식 지원
-            print("="*60)
-            print("🚀 PowerPoint 변환 엔진: Microsoft Office COM 방식")
-            print("   ⚡ 고성능 네이티브 변환 (2-3배 빠름)")
-            print("   📄 지원 형식: .ppt, .pptx (모든 PowerPoint 형식)")
-            print("   🔄 F 드라이브 UNC 변환 지원")
-            print("="*60)
+            print("   🚀 Microsoft Office COM 방식 사용 (고성능)")
+            print("   📄 지원 형식: .ppt, .pptx")
         else:
             self.active_converter = self.pdf_converter
             self.converter_type = "LibreOffice" 
             self.supported_extensions = ['.pptx']  # LibreOffice는 .pptx만 안정적
-            print("="*60)
-            print("📋 PowerPoint 변환 엔진: LibreOffice 방식")
-            print("   🔧 호환성 우선 (Office 없는 환경)")
+            print("   📋 LibreOffice 방식 사용 (호환성)")
             print("   📄 지원 형식: .pptx")
-            print("   ⚠️  .ppt 파일은 지원하지 않음")
-            print("="*60)
         
         # 현재 연결된 파일 경로 (호환성을 위해)
         self.current_file_path = None
@@ -189,26 +181,19 @@ class PowerPointHandler:
             return None
         
         try:
-            print(f"\n🎯 PowerPoint 렌더링 시작: {os.path.basename(file_path)} (슬라이드 {slide_number + 1})")
-            print(f"🔧 사용 변환 엔진: {self.converter_type} 방식")
-            
             logger.info(f"🔄 PPT → PDF → 이미지 렌더링 시작: {os.path.basename(file_path)}, 슬라이드 {slide_number + 1}")
             
             # 1단계: PPT를 PDF로 변환 (캐시 활용) - 활성 변환기 사용
             start_time = time.time()
-            print(f"🔄 1단계: PPT → PDF 변환 중... ({self.converter_type} 엔진)")
             pdf_path = self.active_converter.convert_to_pdf(file_path)
             conversion_time = time.time() - start_time
             if not pdf_path:
-                print(f"❌ PPT → PDF 변환 실패 ({self.converter_type} 방식)")
                 logger.error("❌ PPT → PDF 변환 실패")
                 return None
             
-            print(f"✅ 1단계 완료: PDF 변환 성공 ({self.converter_type} - {conversion_time:.1f}초)")
             logger.info(f"✅ PDF 변환 완료: {os.path.basename(pdf_path)}")
             
             # 2단계: PDF에서 해당 페이지를 이미지로 렌더링
-            print(f"🔄 2단계: PDF → 이미지 렌더링 중...")
             image = self.pdf_handler.render_page_to_image(
                 pdf_path, 
                 page_num=slide_number,
@@ -216,15 +201,9 @@ class PowerPointHandler:
             )
             
             if image:
-                total_time = time.time() - start_time
-                print(f"✅ 렌더링 완료! 슬라이드 {slide_number + 1} ({self.converter_type} 방식, 총 {total_time:.1f}초)")
-                print("   📊 성능 분석:")
-                print(f"      - PPT → PDF: {conversion_time:.1f}초 ({self.converter_type})")
-                print(f"      - PDF → 이미지: {total_time - conversion_time:.1f}초")
                 logger.info(f"✅ 슬라이드 {slide_number + 1} 렌더링 완료! ({self.converter_type} 변환: {conversion_time:.1f}초)")
                 return image
             else:
-                print(f"❌ 2단계 실패: PDF 페이지 {slide_number} 이미지 렌더링 실패")
                 logger.error(f"❌ PDF 페이지 {slide_number} 렌더링 실패")
                 return None
                 

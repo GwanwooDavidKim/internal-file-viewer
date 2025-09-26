@@ -146,9 +146,6 @@ class PptToPdfConverter:
             return None
         
         try:
-            ppt_name = os.path.basename(ppt_file_path)
-            print(f"\\n📋 LibreOffice 변환 시작: {ppt_name}")
-            print(f"   🔧 헤드리스 모드 (사용자 작업 방해 없음)")
             logger.info(f"🔄 PPT → PDF 변환 시작: {ppt_file_path}")
             
             # LibreOffice 헤드리스 모드로 변환
@@ -176,10 +173,6 @@ class PptToPdfConverter:
                 if temp_pdf.exists():
                     # 캐시 키로 파일명 변경
                     shutil.move(str(temp_pdf), str(cached_pdf))
-                    file_size_kb = cached_pdf.stat().st_size / 1024
-                    print(f"✅ LibreOffice 변환 완료! {ppt_name} → PDF")
-                    print(f"   📄 PDF 크기: {file_size_kb:.1f} KB")
-                    print(f"   🔧 LibreOffice 헤드리스 엔진 사용 성공!")
                     logger.info(f"✅ PDF 변환 완료: {cached_pdf}")
                     
                     # 캐시 정리
