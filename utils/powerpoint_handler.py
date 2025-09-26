@@ -51,10 +51,56 @@ class PowerPointHandler:
         self.pdf_converter = get_converter()
         self.pdf_handler = PdfHandler()
         
+        # 현재 연결된 파일 경로 (호환성을 위해)
+        self.current_file_path = None
+        
         print("🔄 PowerPointHandler 초기화 - 안전한 PDF 변환 방식 사용")
         print("   ✅ 사용자 PowerPoint 작업에 영향 없음")
         print("   ✅ 원본 파일 락 없음") 
         print("   ✅ '원본 열기' 기능 완벽 작동")
+    
+    def open_persistent_connection(self, file_path: str) -> bool:
+        """
+        호환성을 위한 메소드 - PDF 변환 방식에서는 지속 연결이 불필요
+        
+        Args:
+            file_path (str): PowerPoint 파일 경로
+            
+        Returns:
+            bool: 항상 True (PDF 변환 방식은 항상 사용 가능)
+        """
+        self.current_file_path = file_path  # 현재 파일 경로 저장 (render_slide_fast용)
+        logger.info(f"🔄 PPT → PDF 방식으로 연결: {os.path.basename(file_path)}")
+        logger.info("   ✅ 지속 연결 불필요 - 즉시 렌더링 가능")
+        return True
+    
+    def close_persistent_connection(self):
+        """
+        호환성을 위한 메소드 - PDF 변환 방식에서는 정리할 연결이 없음
+        """
+        self.current_file_path = None  # 현재 파일 경로 초기화
+        logger.info("🔄 PPT → PDF 방식 정리 완료")
+        logger.info("   ✅ 사용자 PowerPoint에 영향 없이 안전하게 종료")
+    
+    def render_slide_fast(self, slide_number: int, width: int = 800, height: int = 600) -> Optional['Image.Image']:
+        """
+        호환성을 위한 메소드 - PDF 변환 방식에서는 빠른/일반 렌더링 구분이 없음
+        
+        Args:
+            slide_number (int): 슬라이드 번호 (0부터 시작)
+            width (int): 이미지 너비
+            height (int): 이미지 높이
+            
+        Returns:
+            Optional[Image.Image]: 렌더링된 이미지
+        """
+        if not self.current_file_path:
+            logger.error("❌ render_slide_fast 호출 전에 open_persistent_connection이 필요합니다")
+            return None
+            
+        logger.info(f"🚀 빠른 렌더링 (PDF 방식): 슬라이드 {slide_number + 1}")
+        # PDF 변환 방식은 항상 빠르므로 기본 렌더링 메소드와 동일
+        return self.render_slide_to_image(self.current_file_path, slide_number, width, height)
     
     def can_handle(self, file_path: str) -> bool:
         """
