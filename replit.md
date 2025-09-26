@@ -2,7 +2,7 @@
 
 The Internal File Viewer (사내 파일 뷰어) is a desktop application designed to help teams efficiently browse and preview various business document formats (PDF, PowerPoint, Excel, Word, images) within a single unified interface. The application eliminates the need to open multiple applications to view different file types, significantly improving workflow efficiency for teams dealing with diverse document collections.
 
-The system features a secure authentication system with role-based access control, comprehensive file format support with preview capabilities, and a powerful full-text search engine with indexing. Built as a desktop application using PyQt6, it operates completely offline without requiring external network connections.
+The system features a secure authentication system with role-based access control, comprehensive file format support with preview capabilities, and a powerful full-text search engine with indexing. Built as a desktop application using PyQt6, it operates completely offline without requiring external network connections. All components use free and open-source libraries to avoid licensing costs.
 
 # User Preferences
 
@@ -65,5 +65,12 @@ Comprehensive error handling is implemented throughout the application with user
 - **typing-extensions**: Enhanced type hinting support
 - **six**: Python 2/3 compatibility utilities
 
+## PowerPoint Processing
+PowerPoint files are processed through a priority-based system:
+1. **COM Integration**: Uses Microsoft Office COM automation (Windows only, requires Office installation)
+2. **LibreOffice Conversion**: Uses LibreOffice for PDF conversion (cross-platform, free)
+
+The system automatically selects the best available method, ensuring compatibility across different environments while maintaining cost-effectiveness through free solutions only.
+
 ## Runtime Dependencies
-The application is designed to be packaged as a standalone executable using PyInstaller, eliminating the need for users to install Python or manage dependencies. For PowerPoint slide rendering (if COM automation is implemented), Microsoft PowerPoint installation on the user's machine would be required.
+The application is designed to be packaged as a standalone executable using PyInstaller, eliminating the need for users to install Python or manage dependencies. All external dependencies are free and open-source to avoid licensing costs.
