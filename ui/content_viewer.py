@@ -235,7 +235,7 @@ class ContentViewer(QWidget):
         self.loading_file_name.setStyleSheet(f"""
             QLabel {{
                 color: {config.UI_COLORS['text']};
-                font-size: {config.UI_FONTS['content_size']}px;
+                font-size: {config.UI_FONTS['body_size']}px;
                 margin: 5px;
             }}
         """)
