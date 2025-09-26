@@ -266,6 +266,8 @@ class ComPowerPointConverter:
         try:
             start_time = time.time()
             ppt_name = os.path.basename(ppt_file_path)
+            print(f"\\n🚀 Microsoft Office COM 변환 시작: {ppt_name}")
+            print(f"   🔄 F 드라이브 → UNC 경로 자동 변환 지원")
             logger.info(f"🚀 COM 변환 시작: {ppt_name}")
             
             with self._lock:  # COM 객체는 스레드 안전하지 않음
@@ -305,6 +307,9 @@ class ComPowerPointConverter:
                 # 변환 완료 확인
                 if cached_pdf.exists() and cached_pdf.stat().st_size > 0:
                     elapsed = time.time() - start_time
+                    print(f"✅ COM 변환 완료! {ppt_name} → PDF ({elapsed:.1f}초)")
+                    print(f"   📄 PDF 크기: {cached_pdf.stat().st_size / 1024:.1f} KB")
+                    print(f"   🚀 Microsoft Office 네이티브 엔진 사용 성공!")
                     logger.info(f"✅ COM 변환 완료! ({elapsed:.1f}초)")
                     logger.info(f"   📄 PDF 크기: {cached_pdf.stat().st_size / 1024:.1f} KB")
                     return str(cached_pdf)
