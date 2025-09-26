@@ -77,6 +77,72 @@ class PowerPointHandler:
         except Exception:
             return 0
     
+    def extract_text(self, file_path: str, max_slides: int = None) -> str:
+        """
+        PowerPoint 파일에서 모든 슬라이드의 텍스트를 추출합니다.
+        검색 인덱싱용 통합 메서드입니다.
+        
+        Args:
+            file_path (str): PowerPoint 파일 경로
+            max_slides (int): 추출할 최대 슬라이드 수 (None이면 전체)
+            
+        Returns:
+            str: 추출된 모든 텍스트
+        """
+        try:
+            prs = Presentation(file_path)
+            all_text = []
+            
+            slide_count = len(prs.slides)
+            if max_slides:
+                slide_count = min(slide_count, max_slides)
+            
+            for slide_idx in range(slide_count):
+                slide = prs.slides[slide_idx]
+                slide_text = []
+                
+                # 슬라이드 제목 추출
+                title = ""
+                if slide.shapes.title:
+                    title = slide.shapes.title.text.strip()
+                    if title:
+                        slide_text.append(f"제목: {title}")
+                
+                # 모든 도형에서 텍스트 추출
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and shape.text.strip():
+                        shape_text = shape.text.strip()
+                        if shape_text and shape_text != title:  # 제목 중복 방지
+                            slide_text.append(shape_text)
+                    
+                    # 테이블 내용 추출
+                    if shape.shape_type == MSO_SHAPE_TYPE.TABLE:
+                        try:
+                            table = shape.table
+                            for row in table.rows:
+                                row_text = []
+                                for cell in row.cells:
+                                    if cell.text.strip():
+                                        row_text.append(cell.text.strip())
+                                if row_text:
+                                    slide_text.append(" | ".join(row_text))
+                        except Exception as e:
+                            print(f"테이블 처리 오류 (슬라이드 {slide_idx + 1}): {e}")
+                
+                # 슬라이드별 텍스트 결합
+                if slide_text:
+                    slide_content = f"[슬라이드 {slide_idx + 1}]\n" + "\n".join(slide_text)
+                    all_text.append(slide_content)
+            
+            # 모든 슬라이드 텍스트 결합
+            result = "\n\n".join(all_text)
+            print(f"✅ PowerPoint 텍스트 추출 완료: {len(result)}자 ({slide_count}개 슬라이드)")
+            return result
+            
+        except Exception as e:
+            print(f"❌ PowerPoint 텍스트 추출 실패: {e}")
+            return f"PowerPoint 파일을 읽을 수 없습니다: {str(e)}"
+    
     def extract_text_from_slide(self, file_path: str, slide_number: int) -> Dict[str, Any]:
         """
         특정 슬라이드에서 텍스트를 추출합니다.
