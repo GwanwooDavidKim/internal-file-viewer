@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .ppt_to_pdf_converter import get_converter
 from .com_powerpoint_converter import get_com_converter
+from .aspose_powerpoint_converter import get_aspose_converter
 from .pdf_handler import PdfHandler
 import logging
 import time
@@ -48,13 +49,21 @@ class PowerPointHandler:
     def __init__(self):
         """PowerPointHandler 인스턴스를 초기화합니다."""
         # PDF 변환기와 PDF 핸들러 초기화 (먼저 생성)
-        # Windows+Office 환경에서는 COM 방식 우선 사용
+        # 우선순위: Aspose (최고) → COM (높음) → LibreOffice (폴백)
+        self.aspose_converter = get_aspose_converter()
         self.com_converter = get_com_converter()
         self.pdf_converter = get_converter()  # 폴백용
         self.pdf_handler = PdfHandler()
         
-        # 사용할 변환기 결정
-        if self.com_converter.is_available():
+        # 사용할 변환기 결정 (우선순위 적용)
+        if self.aspose_converter.is_available():
+            self.active_converter = self.aspose_converter
+            self.converter_type = "Aspose.Slides"
+            self.supported_extensions = ['.ppt', '.pptx']  # Aspose는 모든 PowerPoint 형식 지원
+            print("   🚀 Aspose.Slides 방식 사용 (최고성능, 사용자 간섭 없음)")
+            print("   📄 지원 형식: .ppt, .pptx")
+            print("   🛡️ Microsoft Office 설치 불필요")
+        elif self.com_converter.is_available():
             self.active_converter = self.com_converter
             self.converter_type = "COM"
             self.supported_extensions = ['.ppt', '.pptx']  # COM은 모든 PowerPoint 형식 지원
@@ -75,6 +84,10 @@ class PowerPointHandler:
         print("   ✅ 원본 파일 락 없음") 
         print("   ✅ '원본 열기' 기능 완벽 작동")
         print(f"   ⚡ 활성 변환기: {self.converter_type}")
+        
+        # Aspose 사용 시 추가 메시지
+        if self.converter_type == "Aspose.Slides":
+            print("   🎯 Aspose 장점: COM 간섭 없음 + LibreOffice보다 빠름")
     
     def open_persistent_connection(self, file_path: str) -> bool:
         """
