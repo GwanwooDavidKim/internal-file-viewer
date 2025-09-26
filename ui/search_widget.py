@@ -577,13 +577,15 @@ class SearchWidget(QWidget):
         # 로딩 중 버튼 비활성화 (UX 개선: 중복 클릭 방지)
         self.open_viewer_button.setEnabled(False)
         
-        # 로딩 알림창 표시
-        self.loading_dialog = QMessageBox(self)
-        self.loading_dialog.setIcon(QMessageBox.Icon.Information)
+        # 로딩 알림창 표시 (제대로 된 modal dialog)
+        from PyQt6.QtWidgets import QProgressDialog
+        from PyQt6.QtCore import Qt
+        
+        self.loading_dialog = QProgressDialog("파일 로딩중입니다...", None, 0, 0, self)
         self.loading_dialog.setWindowTitle("파일 로딩 중")
-        self.loading_dialog.setText("파일 로딩중입니다...")
-        self.loading_dialog.setStandardButtons(QMessageBox.StandardButton.NoButton)
-        self.loading_dialog.setModal(True)
+        self.loading_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.loading_dialog.setAutoClose(False)
+        self.loading_dialog.setAutoReset(False)
         self.loading_dialog.show()
         
         print(f"🔄 파일 뷰어에서 열기: {self.current_selected_file}")
