@@ -1,0 +1,45 @@
+"Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx": {
+      "content": "[슬라이드 1]\n제목: Large Area Display Production Strategy Tracker – 3Q24 Analysis\nYoonsung Chung\nSenior Research Manager, Large Area Displays & Supply Chain\naskananalyst@omdia.com\n\n[슬라이드 2]\n제목: Contents\nKey",
+      "title": "Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx",
+      "size": 1.96,
+      "modified": "2025-09-26T10:00:07.215185",
+      "type": "powerpoint",
+      "file_hash": "ea39668d059001c984c56c81912eb407",
+      "full_path": "C:/Users/Administrator/Desktop\\Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx"
+    },
+    "Python 교육자료\\part1\\part1\\코드\\4-12\\bird_game_image.pptx": {
+      "content": "",
+      "title": "bird_game_image.pptx",
+      "size": 0.06,
+      "modified": "2025-09-26T10:00:12.807353",
+      "type": "powerpoint",
+      "file_hash": "dd14f6b1331343a8b61223966d9138c4",
+      "full_path": "C:/Users/Administrator/Desktop\\Python 교육자료\\part1\\part1\\코드\\4-12\\bird_game_image.pptx"
+    },
+    "company-event-manager\\node_modules\\es-iterator-helpers\\README.md": {
+      "content": "# es-iterator-helpers <sup>[![Version Badge][npm-version-svg]][package-url]</sup>\n\n[![github actions][actions-image]][actions-url]\n[![coverage][codecov-image]][codecov-url]\n[![License][license-image]]",
+      "title": "README.md",
+      "size": 0.0,
+      "modified": "2025-09-26T10:00:06.067222",
+      "type": "Markdown",
+      "file_hash": "763896b7e0496af2c2aca4885bb7b8f6",
+      "full_path": "C:/Users/Administrator/Desktop\\company-event-manager\\node_modules\\es-iterator-helpers\\README.md"
+    },
+    "company-event-manager\\node_modules\\eslint-plugin-import\\docs\\rules\\group-exports.md": {
+      "content": "# import/group-exports\n\n<!-- end auto-generated rule header -->\n\nReports when named exports are not grouped together in a single `export` declaration or when multiple assignments to CommonJS `module.e",
+      "title": "group-exports.md",
+      "size": 0.0,
+      "modified": "2025-09-26T10:00:06.195250",
+      "type": "Markdown",
+      "file_hash": "e052f3433779b97131e1094af39c1a19",
+      "full_path": "C:/Users/Administrator/Desktop\\company-event-manager\\node_modules\\eslint-plugin-import\\docs\\rules\\group-exports.md"
+    },
+    "company-event-manager\\node_modules\\define-data-property\\CHANGELOG.md": {
+      "content": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)\nand this project adheres to [Semantic",
+      "title": "CHANGELOG.md",
+      "size": 0.01,
+      "modified": "2025-09-26T10:00:05.992245",
+      "type": "Markdown",
+      "file_hash": "8d8c4e2fb6607beb74e3f4204a4095c3",
+      "full_path": "C:/Users/Administrator/Desktop\\company-event-manager\\node_modules\\define-data-property\\CHANGELOG.md"
+    }

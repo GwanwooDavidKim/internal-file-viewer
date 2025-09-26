@@ -92,6 +92,7 @@ class SearchIndex:
                 **file_info,
                 'indexed_time': datetime.now(),
                 'content_preview': content[:200] if content else '',
+                'full_content': content,  # 전체 내용도 저장 (검색용)
             }
             
             # 파일명도 인덱싱에 포함
@@ -545,7 +546,7 @@ class SearchIndexer:
                     relative_path = os.path.relpath(file_path, str(self.cache_directory))
                     
                     cache_data["files"][relative_path] = {
-                        "content": file_info.get('content_preview', ''),
+                        "content": file_info.get('full_content', ''),
                         "title": os.path.basename(file_path),
                         "size": file_info.get('file_size_mb', 0),
                         "modified": file_info.get('indexed_time', datetime.now()).isoformat(),
