@@ -45,7 +45,7 @@ class PowerPointHandler:
     
     def __init__(self):
         """PowerPointHandler 인스턴스를 초기화합니다."""
-        self.supported_extensions = ['.pptx', '.ppt']  # PDF 변환으로 .ppt도 지원 가능
+        self.supported_extensions = ['.pptx']  # python-pptx는 .pptx만 지원 (.ppt는 LibreOffice PDF 변환으로만 미리보기 가능)
         
         # PDF 변환기와 PDF 핸들러 초기화
         self.pdf_converter = get_converter()
