@@ -41,11 +41,13 @@ class PptToPdfConverter:
         self.cache_max_size = 1024 * 1024 * 1024  # 1GB
         self.cache_max_age = timedelta(days=7)  # 7일
         
-        logger.info(f"🔄 PptToPdfConverter 초기화 - 캐시 폴더: {self.cache_dir}")
+        print(f"🔄 PptToPdfConverter 초기화 - 캐시 폴더: {self.cache_dir}")
         if self.libreoffice_path:
+            print(f"✅ LibreOffice 발견: {self.libreoffice_path}")
             logger.info(f"✅ LibreOffice 발견: {self.libreoffice_path}")
         else:
-            logger.warning("⚠️ LibreOffice를 찾을 수 없습니다. PPT 미리보기가 제한됩니다.")
+            print("❌ LibreOffice를 찾을 수 없습니다. PPT 미리보기가 제한됩니다.")
+            logger.error("❌ LibreOffice를 찾을 수 없습니다. PPT 미리보기가 제한됩니다.")
     
     def _find_libreoffice(self) -> Optional[str]:
         """LibreOffice 실행 파일을 찾습니다"""
@@ -60,20 +62,50 @@ class PptToPdfConverter:
             "/Applications/LibreOffice.app/Contents/MacOS/soffice",
         ]
         
-        # PATH에서 찾기
+        # PATH에서 찾기 (타임아웃 늘리고 디버깅 강화)
+        logger.info("🔍 PATH에서 LibreOffice 검색 중...")
         try:
             result = subprocess.run(["soffice", "--version"], 
-                                  capture_output=True, text=True, timeout=5)
+                                  capture_output=True, text=True, timeout=15)
             if result.returncode == 0:
+                logger.info(f"✅ PATH에서 soffice 발견: {result.stdout.strip()}")
                 return "soffice"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
+            else:
+                logger.warning(f"⚠️ soffice 실행 실패: returncode={result.returncode}")
+        except subprocess.TimeoutExpired:
+            logger.warning("⚠️ soffice --version 타임아웃 (15초)")
+        except FileNotFoundError:
+            logger.warning("⚠️ soffice 명령어를 찾을 수 없음")
+        except Exception as e:
+            logger.warning(f"⚠️ soffice 실행 중 예외: {e}")
+        
+        # libreoffice 명령도 시도
+        logger.info("🔍 libreoffice 명령으로 재시도...")
+        try:
+            result = subprocess.run(["libreoffice", "--version"], 
+                                  capture_output=True, text=True, timeout=15)
+            if result.returncode == 0:
+                logger.info(f"✅ PATH에서 libreoffice 발견: {result.stdout.strip()}")
+                return "libreoffice"
+            else:
+                logger.warning(f"⚠️ libreoffice 실행 실패: returncode={result.returncode}")
+        except subprocess.TimeoutExpired:
+            logger.warning("⚠️ libreoffice --version 타임아웃 (15초)")
+        except FileNotFoundError:
+            logger.warning("⚠️ libreoffice 명령어를 찾을 수 없음")
+        except Exception as e:
+            logger.warning(f"⚠️ libreoffice 실행 중 예외: {e}")
         
         # 직접 경로에서 찾기
+        logger.info("🔍 하드코딩된 경로에서 LibreOffice 검색 중...")
         for path in possible_paths:
             if os.path.exists(path):
+                logger.info(f"✅ 경로에서 발견: {path}")
                 return path
+            else:
+                logger.debug(f"❌ 경로 없음: {path}")
         
+        logger.error("❌ LibreOffice를 찾을 수 없습니다")
         return None
     
     def _get_cache_key(self, file_path: str) -> str:
