@@ -175,7 +175,7 @@ class SearchWidget(QWidget):
         actions_layout.addStretch()
         
         # 파일 뷰어에서 열기 버튼
-        self.open_viewer_button = QPushButton("👁️ 파일 뷰어에서 열기")
+        self.open_viewer_button = QPushButton("파일 뷰어에서 열기")
         self.open_viewer_button.setFixedSize(140, 35)
         self.open_viewer_button.setStyleSheet("""
             QPushButton {

@@ -302,11 +302,11 @@ class MainWindow(QMainWindow):
             file_path (str): 로드 완료된 파일의 경로
         """
         if self.file_selected_from_search:
-            # 검색 위젯의 로딩 알림창 닫기
-            self.search_widget.close_loading_dialog()
-            
-            # 파일 뷰어 탭으로 자동 전환 (인덱스 0)
+            # 파일 뷰어 탭으로 자동 전환 (인덱스 0) - 먼저 전환
             self.right_tabs.setCurrentIndex(0)
+            
+            # 검색 위젯의 로딩 알림창 닫기 - 나중에 닫기
+            self.search_widget.close_loading_dialog()
             
             print(f"🎯 파일 뷰어 탭으로 자동 전환: {file_path}")
             
@@ -326,11 +326,11 @@ class MainWindow(QMainWindow):
             error_message (str): 오류 메시지
         """
         if self.file_selected_from_search:
-            # 검색 위젯의 로딩 알림창 닫기
-            self.search_widget.close_loading_dialog()
-            
-            # 파일 뷰어 탭으로 자동 전환 (오류 화면 표시를 위해)
+            # 파일 뷰어 탭으로 자동 전환 (오류 화면 표시를 위해) - 먼저 전환
             self.right_tabs.setCurrentIndex(0)
+            
+            # 검색 위젯의 로딩 알림창 닫기 - 나중에 닫기
+            self.search_widget.close_loading_dialog()
             
             print(f"❌ 파일 로딩 실패 - 파일 뷰어 탭으로 전환: {file_path}")
             
