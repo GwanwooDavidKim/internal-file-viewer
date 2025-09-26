@@ -303,12 +303,29 @@ class ComPowerPointConverter:
                 logger.info("   📂 프레젠테이션 열기 중...")
                 smart_ppt_path = self._convert_to_unc_path(ppt_file_path)
                 logger.info(f"   🔄 경로 변환: {ppt_file_path} → {smart_ppt_path}")
-                presentation = ppt_app.Presentations.Open(
-                    smart_ppt_path,
-                    ReadOnly=1,  # 읽기 전용
-                    Untitled=1,  # 제목 없이
-                    WithWindow=0  # 창 없이
-                )
+                
+                # PowerPoint 2016+ 보안 제한으로 WithWindow=0도 차단될 수 있음
+                try:
+                    presentation = ppt_app.Presentations.Open(
+                        smart_ppt_path,
+                        ReadOnly=1,  # 읽기 전용
+                        Untitled=1,  # 제목 없이
+                        WithWindow=0  # 창 없이 (시도)
+                    )
+                    logger.debug("프레젠테이션 창 없이 열기 성공")
+                except Exception as e:
+                    # WithWindow=0 보안 제한 시 WithWindow=1로 대체
+                    if "Hiding the application window is not allowed" in str(e) or "-2147188160" in str(e):
+                        logger.info("⚡ 프레젠테이션 창 없이 열기 실패 - 최소화 창으로 대체")
+                        presentation = ppt_app.Presentations.Open(
+                            smart_ppt_path,
+                            ReadOnly=1,  # 읽기 전용
+                            Untitled=1,  # 제목 없이
+                            WithWindow=1  # 창 표시 (최소화됨)
+                        )
+                    else:
+                        # 다른 오류는 그대로 전파
+                        raise
                 
                 # PDF로 저장
                 logger.info("   💾 PDF로 변환 중...")
