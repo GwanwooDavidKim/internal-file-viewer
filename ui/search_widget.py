@@ -174,6 +174,33 @@ class SearchWidget(QWidget):
         
         actions_layout.addStretch()
         
+        # 파일 뷰어에서 열기 버튼
+        self.open_viewer_button = QPushButton("👁️ 파일 뷰어에서 열기")
+        self.open_viewer_button.setFixedSize(140, 35)
+        self.open_viewer_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #0D47A1;
+            }
+            QPushButton:disabled {
+                background-color: #CCCCCC;
+                color: #666666;
+            }
+        """)
+        self.open_viewer_button.clicked.connect(self.open_in_viewer)
+        self.open_viewer_button.setEnabled(False)
+        actions_layout.addWidget(self.open_viewer_button)
+        
         # 폴더 열기 버튼
         self.open_folder_button = QPushButton("📁 폴더 열기")
         self.open_folder_button.setFixedSize(100, 35)
@@ -375,6 +402,7 @@ class SearchWidget(QWidget):
         self.results_label.setText("검색 결과 - 인덱스 초기화됨")
         
         # 버튼들 비활성화
+        self.open_viewer_button.setEnabled(False)
         self.open_original_button.setEnabled(False)
         self.open_folder_button.setEnabled(False)
         self.current_selected_file = None
@@ -448,11 +476,9 @@ class SearchWidget(QWidget):
             self.current_selected_file = result['file_path']
             
             # 버튼들 활성화
+            self.open_viewer_button.setEnabled(True)
             self.open_original_button.setEnabled(True)
             self.open_folder_button.setEnabled(True)
-            
-            # 파일 선택 신호 발생
-            self.file_selected.emit(result['file_path'])
     
     def add_file_to_index(self, file_path: str):
         """
@@ -542,6 +568,39 @@ class SearchWidget(QWidget):
             print(f"❌ 폴더 열기 실패: {e}")
             print(f"❌ 파일 경로: {self.current_selected_file}")
             print(f"❌ 폴더 경로: {os.path.dirname(self.current_selected_file)}")
+    
+    def open_in_viewer(self):
+        """선택된 파일을 파일 뷰어에서 엽니다."""
+        if not self.current_selected_file or not os.path.exists(self.current_selected_file):
+            return
+        
+        # 로딩 중 버튼 비활성화 (UX 개선: 중복 클릭 방지)
+        self.open_viewer_button.setEnabled(False)
+        
+        # 로딩 알림창 표시
+        self.loading_dialog = QMessageBox(self)
+        self.loading_dialog.setIcon(QMessageBox.Icon.Information)
+        self.loading_dialog.setWindowTitle("파일 로딩 중")
+        self.loading_dialog.setText("파일 로딩중입니다...")
+        self.loading_dialog.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        self.loading_dialog.setModal(True)
+        self.loading_dialog.show()
+        
+        print(f"🔄 파일 뷰어에서 열기: {self.current_selected_file}")
+        
+        # 파일 선택 신호 발생
+        self.file_selected.emit(self.current_selected_file)
+    
+    def close_loading_dialog(self):
+        """로딩 알림창을 닫습니다."""
+        if hasattr(self, 'loading_dialog') and self.loading_dialog:
+            self.loading_dialog.close()
+            self.loading_dialog = None
+            print("✅ 파일 로딩 완료 - 알림창 닫음")
+        
+        # 버튼 다시 활성화 (로딩 완료 후)
+        if self.current_selected_file:
+            self.open_viewer_button.setEnabled(True)
     
     def on_search_mode_changed(self):
         """검색 모드 변경 시 호출됩니다."""

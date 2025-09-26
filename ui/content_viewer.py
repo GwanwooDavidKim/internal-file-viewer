@@ -83,6 +83,10 @@ class ContentViewer(QWidget):
     파일 형식에 따라 적절한 미리보기를 제공합니다.
     """
     
+    # 파일 로딩 완료 신호
+    file_load_completed = pyqtSignal(str)  # 파일 경로 전달 (성공)
+    file_load_failed = pyqtSignal(str, str)  # 파일 경로, 오류 메시지 전달 (실패)
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.file_manager = FileManager()
@@ -403,7 +407,7 @@ class ContentViewer(QWidget):
         # 새 워커 시작
         self.load_worker = FileLoadWorker(file_path, self.file_manager)
         self.load_worker.load_completed.connect(self.on_file_loaded)
-        self.load_worker.load_error.connect(self.show_error)
+        self.load_worker.load_error.connect(self.on_file_load_error)
         self.load_worker.start()
     
     def on_file_loaded(self, file_info: Dict[str, Any]):
@@ -439,7 +443,20 @@ class ContentViewer(QWidget):
         elif file_type in ['text', 'Plain Text', 'Markdown', 'Log File', 'Text File']:
             self.setup_text_file_viewer(file_info)
         else:
-            self.show_error(f"지원되지 않는 파일 형식입니다. (파일 타입: {file_type})")
+            # 지원되지 않는 파일 형식은 실패로 처리
+            error_message = f"지원되지 않는 파일 형식입니다. (파일 타입: {file_type})"
+            self.show_error(error_message)
+            self.file_load_failed.emit(self.current_file_path, error_message)
+            return
+        
+        # 파일 로딩 완료 신호 발생 (UX 개선: 검색에서 온 경우 알림창 닫기 및 탭 전환)
+        self.file_load_completed.emit(self.current_file_path)
+    
+    def on_file_load_error(self, error_message: str):
+        """파일 로딩 오류 시 호출됩니다."""
+        self.show_error(error_message)
+        # 오류 발생 시 실패 신호 발생 (알림창 닫기 및 탭 전환)
+        self.file_load_failed.emit(self.current_file_path, error_message)
     
     def setup_pdf_viewer(self, file_info: Dict[str, Any]):
         """PDF 뷰어를 설정합니다."""

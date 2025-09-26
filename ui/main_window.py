@@ -27,6 +27,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.auth_manager = AuthenticationManager()
         self.current_folder_path = ""
+        self.file_selected_from_search = False  # 검색 위젯에서 파일이 선택되었는지 추적
         self.setup_ui()
         self.setup_session_timer()
         
@@ -129,6 +130,8 @@ class MainWindow(QMainWindow):
         content_layout.addWidget(viewer_title)
         
         self.content_viewer = ContentViewer()
+        self.content_viewer.file_load_completed.connect(self.on_file_load_completed)
+        self.content_viewer.file_load_failed.connect(self.on_file_load_failed)
         content_layout.addWidget(self.content_viewer)
         
         self.right_tabs.addTab(content_widget, "📄 파일 뷰어")
@@ -283,9 +286,59 @@ class MainWindow(QMainWindow):
         Args:
             file_path (str): 선택된 파일의 경로
         """
+        # 검색 위젯에서 파일이 선택되었는지 확인
+        sender = self.sender()
+        self.file_selected_from_search = (sender == self.search_widget)
+        
         self.status_bar.showMessage(f"파일 로딩 중: {file_path}")
         self.content_viewer.load_file(file_path)
+    
+    def on_file_load_completed(self, file_path: str):
+        """
+        파일 로딩이 완료되었을 때 호출됩니다.
+        검색 위젯에서 선택된 파일인 경우 알림창을 닫고 파일 뷰어 탭으로 전환합니다.
+        
+        Args:
+            file_path (str): 로드 완료된 파일의 경로
+        """
+        if self.file_selected_from_search:
+            # 검색 위젯의 로딩 알림창 닫기
+            self.search_widget.close_loading_dialog()
+            
+            # 파일 뷰어 탭으로 자동 전환 (인덱스 0)
+            self.right_tabs.setCurrentIndex(0)
+            
+            print(f"🎯 파일 뷰어 탭으로 자동 전환: {file_path}")
+            
+            # 플래그 리셋
+            self.file_selected_from_search = False
+        
+        # 상태바 업데이트 (비동기 로딩 성공 시점)
         self.status_bar.showMessage(f"파일 로드됨: {file_path}")
+    
+    def on_file_load_failed(self, file_path: str, error_message: str):
+        """
+        파일 로딩이 실패했을 때 호출됩니다.
+        검색 위젯에서 선택된 파일인 경우 알림창을 닫고 파일 뷰어 탭으로 전환합니다.
+        
+        Args:
+            file_path (str): 로드 실패한 파일의 경로
+            error_message (str): 오류 메시지
+        """
+        if self.file_selected_from_search:
+            # 검색 위젯의 로딩 알림창 닫기
+            self.search_widget.close_loading_dialog()
+            
+            # 파일 뷰어 탭으로 자동 전환 (오류 화면 표시를 위해)
+            self.right_tabs.setCurrentIndex(0)
+            
+            print(f"❌ 파일 로딩 실패 - 파일 뷰어 탭으로 전환: {file_path}")
+            
+            # 플래그 리셋
+            self.file_selected_from_search = False
+        
+        # 상태바 업데이트 (비동기 로딩 실패 시점)
+        self.status_bar.showMessage(f"로딩 실패: {error_message}")
     
     def logout(self):
         """로그아웃을 수행합니다."""
