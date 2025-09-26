@@ -166,7 +166,7 @@ class FileManager:
             elif file_type == 'word':
                 return handler.extract_text(file_path, kwargs.get('include_structure', True))
             elif file_type == 'powerpoint':
-                return handler.extract_all_text(file_path)
+                return handler.extract_text(file_path, kwargs.get('max_slides'))
             elif file_type == 'excel':
                 # Excel의 경우 첫 번째 시트의 데이터를 텍스트로 변환
                 sheet_data = handler.read_sheet(file_path)
