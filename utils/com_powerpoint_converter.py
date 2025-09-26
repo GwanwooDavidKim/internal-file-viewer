@@ -276,7 +276,20 @@ class ComPowerPointConverter:
                 if not comtypes_client:
                     raise RuntimeError("comtypes 라이브러리를 사용할 수 없습니다")
                 ppt_app = comtypes_client.CreateObject("PowerPoint.Application")
-                ppt_app.Visible = 0  # 백그라운드 실행
+                
+                # PowerPoint 2016+ 보안 제한으로 Visible=0 불가 → 최소화 사용
+                try:
+                    ppt_app.Visible = 0  # 완전 숨기기 시도
+                    logger.debug("PowerPoint 창 완전 숨기기 성공")
+                except:
+                    # PowerPoint 2016+ 보안 제한 시 최소화로 대체
+                    ppt_app.Visible = 1  # 창 표시
+                    try:
+                        ppt_app.WindowState = 2  # ppWindowMinimized = 2 (최소화)
+                        logger.info("⚡ PowerPoint 창 최소화 (보안 제한으로 완전 숨기기 불가)")
+                    except:
+                        logger.warning("⚠️ PowerPoint 창 최소화도 실패 - 창이 표시될 수 있음")
+                
                 ppt_app.DisplayAlerts = 0  # 알림 비활성화
                 
                 # 보안 설정: 매크로 비활성화 (가능한 경우)

@@ -1,0 +1,115 @@
+🚀 ComPowerPointConverter 초기화
+   📁 캐시 폴더: C:\Users\ADMINI~1\AppData\Local\Temp\com_ppt_pdf_cache
+   ✅ Microsoft Office COM 방식 사용 가능!
+   ⚡ 고성능 네이티브 변환 준비 완료
+   🔄 F 드라이브 UNC 변환 지원
+⚠️ soffice 명령어를 찾을 수 없음
+⚠️ libreoffice 명령어를 찾을 수 없음
+🔄 PptToPdfConverter 초기화 - 캐시 폴더: C:\Users\ADMINI~1\AppData\Local\Temp\ppt_pdf_cache
+✅ LibreOffice 발견: C:\Program Files\LibreOffice\program\soffice.exe
+============================================================
+🚀 PowerPoint 변환 엔진: Microsoft Office COM 방식
+   ⚡ 고성능 네이티브 변환 (2-3배 빠름)
+   📄 지원 형식: .ppt, .pptx (모든 PowerPoint 형식)
+   🔄 F 드라이브 UNC 변환 지원
+============================================================
+🔄 PowerPointHandler 초기화 - 안전한 PDF 변환 방식 사용
+   ✅ 사용자 PowerPoint 작업에 영향 없음
+   ✅ 원본 파일 락 없음
+   ✅ '원본 열기' 기능 완벽 작동
+   ⚡ 활성 변환기: COM
+============================================================
+🚀 PowerPoint 변환 엔진: Microsoft Office COM 방식
+   ⚡ 고성능 네이티브 변환 (2-3배 빠름)
+   📄 지원 형식: .ppt, .pptx (모든 PowerPoint 형식)
+   🔄 F 드라이브 UNC 변환 지원
+============================================================
+🔄 PowerPointHandler 초기화 - 안전한 PDF 변환 방식 사용
+   ✅ 사용자 PowerPoint 작업에 영향 없음
+   ✅ 원본 파일 락 없음
+   ✅ '원본 열기' 기능 완벽 작동
+   ⚡ 활성 변환기: COM
+============================================================
+🚀 PowerPoint 변환 엔진: Microsoft Office COM 방식
+   ⚡ 고성능 네이티브 변환 (2-3배 빠름)
+   📄 지원 형식: .ppt, .pptx (모든 PowerPoint 형식)
+   🔄 F 드라이브 UNC 변환 지원
+============================================================
+🔄 PowerPointHandler 초기화 - 안전한 PDF 변환 방식 사용
+   ✅ 사용자 PowerPoint 작업에 영향 없음
+   ✅ 원본 파일 락 없음
+   ✅ '원본 열기' 기능 완벽 작동
+   ⚡ 활성 변환기: COM
+🚀 PowerPoint 파일 감지! 지속 연결 시작: C:/Users/Administrator/Desktop/Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx
+⚡ PowerPoint 즉시 렌더링: 슬라이드 0
+
+🎯 PowerPoint 렌더링 시작: Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx (슬라이드 1)
+🔧 사용 변환 엔진: COM 방식
+🔄 1단계: PPT → PDF 변환 중... (COM 엔진)
+\n🚀 Microsoft Office COM 변환 시작: Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx
+   🔄 F 드라이브 → UNC 경로 자동 변환 지원
+❌ COM 변환 오류: (-2147188160, None, ('Application (unknown member) : Invalid request.  Hiding the application window is not allowed.', 'Microsoft PowerPoint 2016', '', 0, None))
+❌ PPT → PDF 변환 실패 (COM 방식)
+❌ PPT → PDF 변환 실패
+❌ 즉시 렌더링 실패 - 개별 렌더링으로 폴백
+🔄 폴백 렌더링: 슬라이드 0
+
+🎯 PowerPoint 렌더링 시작: Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx (슬라이드 1)
+🔧 사용 변환 엔진: COM 방식
+🔄 1단계: PPT → PDF 변환 중... (COM 엔진)
+\n🚀 Microsoft Office COM 변환 시작: Large Area Display Production Strategy Tracker  3Q24 Analysis.pptx
+   🔄 F 드라이브 → UNC 경로 자동 변환 지원
+❌ COM 변환 오류: (-2147188160, None, ('Application (unknown member) : Invalid request.  Hiding the application window is not allowed.', 'Microsoft PowerPoint 2016', '', 0, None))
+❌ PPT → PDF 변환 실패 (COM 방식)
+❌ PPT → PDF 변환 실패
+❌ 폴백 렌더링도 실패
+PowerPoint 연결 정리 완료
+PowerPoint 연결 정리 완료
+🚀 PowerPoint 파일 감지! 지속 연결 시작: C:/Users/Administrator/Desktop/ppt양식.pptx
+⚡ PowerPoint 즉시 렌더링: 슬라이드 0
+
+🎯 PowerPoint 렌더링 시작: ppt양식.pptx (슬라이드 1)
+🔧 사용 변환 엔진: COM 방식
+🔄 1단계: PPT → PDF 변환 중... (COM 엔진)
+\n🚀 Microsoft Office COM 변환 시작: ppt양식.pptx
+   🔄 F 드라이브 → UNC 경로 자동 변환 지원
+❌ COM 변환 오류: (-2147188160, None, ('Application (unknown member) : Invalid request.  Hiding the application window is not allowed.', 'Microsoft PowerPoint 2016', '', 0, None))
+❌ PPT → PDF 변환 실패 (COM 방식)
+❌ PPT → PDF 변환 실패
+❌ 즉시 렌더링 실패 - 개별 렌더링으로 폴백
+🔄 폴백 렌더링: 슬라이드 0
+
+🎯 PowerPoint 렌더링 시작: ppt양식.pptx (슬라이드 1)
+🔧 사용 변환 엔진: COM 방식
+🔄 1단계: PPT → PDF 변환 중... (COM 엔진)
+\n🚀 Microsoft Office COM 변환 시작: ppt양식.pptx
+   🔄 F 드라이브 → UNC 경로 자동 변환 지원
+❌ COM 변환 오류: (-2147188160, None, ('Application (unknown member) : Invalid request.  Hiding the application window is not allowed.', 'Microsoft PowerPoint 2016', '', 0, None))
+❌ PPT → PDF 변환 실패 (COM 방식)
+❌ PPT → PDF 변환 실패
+❌ 폴백 렌더링도 실패
+PowerPoint 연결 정리 완료
+PowerPoint 연결 정리 완료
+🚀 PowerPoint 파일 감지! 지속 연결 시작: D:/자료이동/StudioX 교육자료/교재.RPA 기초 개발자 과정_UiPathStudioX_ver1.2.pptx
+⚡ PowerPoint 즉시 렌더링: 슬라이드 0
+
+🎯 PowerPoint 렌더링 시작: 교재.RPA 기초 개발자 과정_UiPathStudioX_ver1.2.pptx (슬라이드 1)
+🔧 사용 변환 엔진: COM 방식
+🔄 1단계: PPT → PDF 변환 중... (COM 엔진)
+\n🚀 Microsoft Office COM 변환 시작: 교재.RPA 기초 개발자 과정_UiPathStudioX_ver1.2.pptx
+   🔄 F 드라이브 → UNC 경로 자동 변환 지원
+❌ COM 변환 오류: (-2147188160, None, ('Application (unknown member) : Invalid request.  Hiding the application window is not allowed.', 'Microsoft PowerPoint 2016', '', 0, None))
+❌ PPT → PDF 변환 실패 (COM 방식)
+❌ PPT → PDF 변환 실패
+❌ 즉시 렌더링 실패 - 개별 렌더링으로 폴백
+🔄 폴백 렌더링: 슬라이드 0
+
+🎯 PowerPoint 렌더링 시작: 교재.RPA 기초 개발자 과정_UiPathStudioX_ver1.2.pptx (슬라이드 1)
+🔧 사용 변환 엔진: COM 방식
+🔄 1단계: PPT → PDF 변환 중... (COM 엔진)
+\n🚀 Microsoft Office COM 변환 시작: 교재.RPA 기초 개발자 과정_UiPathStudioX_ver1.2.pptx
+   🔄 F 드라이브 → UNC 경로 자동 변환 지원
+❌ COM 변환 오류: (-2147188160, None, ('Application (unknown member) : Invalid request.  Hiding the application window is not allowed.', 'Microsoft PowerPoint 2016', '', 0, None))
+❌ PPT → PDF 변환 실패 (COM 방식)
+❌ PPT → PDF 변환 실패
+❌ 폴백 렌더링도 실패
