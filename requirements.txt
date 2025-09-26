@@ -28,7 +28,11 @@ xlsxwriter==3.2.9      # pandas Excel 지원
 # 보안 라이브러리
 bcrypt==4.3.0           # 비밀번호 해시
 
+# PowerPoint 처리 (Aspose.Slides - 고성능, 사용자 간섭 없음)
+aspose-slides==24.12.0  # PowerPoint → PDF 변환 (COM 대체, 사용자 간섭 없음)
+
 # PyQt6 의존성
 PyQt6-Qt6==6.9.2
 PyQt6-sip==13.10.2
 comtypes
+aspose-slides==24.12.0
