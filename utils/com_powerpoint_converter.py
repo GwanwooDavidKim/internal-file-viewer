@@ -115,7 +115,13 @@ class ComPowerPointConverter:
                 return abs_path
             
             drive_letter = abs_path[0].upper()
-            logger.debug(f"드라이브 감지: {drive_letter}:")
+            
+            # 성능 최적화: 로컬 드라이브(C:, D:)는 UNC 변환 스킵
+            if drive_letter in ['C', 'D']:
+                logger.debug(f"로컬 드라이브 {drive_letter}: UNC 변환 스킵 (성능 최적화)")
+                return abs_path
+            
+            logger.debug(f"네트워크 드라이브 감지: {drive_letter}: → UNC 변환 시도")
             
             # 방법 1: pywin32 사용 (가장 정확함)
             if WIN32_AVAILABLE:
@@ -277,18 +283,20 @@ class ComPowerPointConverter:
                     raise RuntimeError("comtypes 라이브러리를 사용할 수 없습니다")
                 ppt_app = comtypes_client.CreateObject("PowerPoint.Application")
                 
-                # PowerPoint 2016+ 보안 제한으로 Visible=0 불가 → 최소화 사용
+                # PowerPoint 2016+ 보안 제한 대응 - 성능 최적화 버전
+                visible_fallback_used = False
                 try:
-                    ppt_app.Visible = 0  # 완전 숨기기 시도
-                    logger.debug("PowerPoint 창 완전 숨기기 성공")
+                    ppt_app.Visible = 0  # 완전 숨기기 시도 (고성능)
+                    logger.debug("PowerPoint 창 완전 숨기기 성공 - 고성능 모드")
                 except:
                     # PowerPoint 2016+ 보안 제한 시 최소화로 대체
                     ppt_app.Visible = 1  # 창 표시
+                    visible_fallback_used = True
                     try:
                         ppt_app.WindowState = 2  # ppWindowMinimized = 2 (최소화)
-                        logger.info("⚡ PowerPoint 창 최소화 (보안 제한으로 완전 숨기기 불가)")
+                        logger.info("⚡ PowerPoint 창 최소화 (보안 제한으로 완전 숨기기 불가) - 성능 저하 예상")
                     except:
-                        logger.warning("⚠️ PowerPoint 창 최소화도 실패 - 창이 표시될 수 있음")
+                        logger.warning("⚠️ PowerPoint 창 최소화도 실패 - 창이 표시되어 성능 저하 발생")
                 
                 ppt_app.DisplayAlerts = 0  # 알림 비활성화
                 
@@ -304,28 +312,39 @@ class ComPowerPointConverter:
                 smart_ppt_path = self._convert_to_unc_path(ppt_file_path)
                 logger.info(f"   🔄 경로 변환: {ppt_file_path} → {smart_ppt_path}")
                 
-                # PowerPoint 2016+ 보안 제한으로 WithWindow=0도 차단될 수 있음
-                try:
+                # PowerPoint 2016+ 보안 제한 대응 - 성능 최적화
+                if visible_fallback_used:
+                    # Visible=1이면 WithWindow=0도 실패할 가능성 높음 → 바로 WithWindow=1 사용
+                    logger.info("⚡ 성능 최적화: Visible 폴백 사용 중이므로 WithWindow=1로 직접 열기")
                     presentation = ppt_app.Presentations.Open(
                         smart_ppt_path,
                         ReadOnly=1,  # 읽기 전용
                         Untitled=1,  # 제목 없이
-                        WithWindow=0  # 창 없이 (시도)
+                        WithWindow=1  # 창 표시 (이미 최소화됨)
                     )
-                    logger.debug("프레젠테이션 창 없이 열기 성공")
-                except Exception as e:
-                    # WithWindow=0 보안 제한 시 WithWindow=1로 대체
-                    if "Hiding the application window is not allowed" in str(e) or "-2147188160" in str(e):
-                        logger.info("⚡ 프레젠테이션 창 없이 열기 실패 - 최소화 창으로 대체")
+                else:
+                    # Visible=0 성공 시에만 WithWindow=0 시도 (고성능)
+                    try:
                         presentation = ppt_app.Presentations.Open(
                             smart_ppt_path,
                             ReadOnly=1,  # 읽기 전용
                             Untitled=1,  # 제목 없이
-                            WithWindow=1  # 창 표시 (최소화됨)
+                            WithWindow=0  # 창 없이 (고성능)
                         )
-                    else:
-                        # 다른 오류는 그대로 전파
-                        raise
+                        logger.debug("프레젠테이션 창 없이 열기 성공 - 고성능 모드")
+                    except Exception as e:
+                        # WithWindow=0 보안 제한 시 WithWindow=1로 대체
+                        if "Hiding the application window is not allowed" in str(e) or "-2147188160" in str(e):
+                            logger.info("⚠️ 프레젠테이션 창 없이 열기 실패 - 최소화 창으로 대체 (성능 저하)")
+                            presentation = ppt_app.Presentations.Open(
+                                smart_ppt_path,
+                                ReadOnly=1,  # 읽기 전용
+                                Untitled=1,  # 제목 없이
+                                WithWindow=1  # 창 표시
+                            )
+                        else:
+                            # 다른 오류는 그대로 전파
+                            raise
                 
                 # PDF로 저장
                 logger.info("   💾 PDF로 변환 중...")
