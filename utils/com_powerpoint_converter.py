@@ -19,6 +19,8 @@ import hashlib
 import shutil
 import logging
 import time
+import subprocess
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -30,10 +32,22 @@ logger = logging.getLogger(__name__)
 try:
     import comtypes.client
     COM_AVAILABLE = True
+    comtypes_client = comtypes.client
     logger.info("✅ comtypes 라이브러리 로드 완료 - COM 방식 사용 가능")
 except ImportError as e:
     COM_AVAILABLE = False
+    comtypes_client = None
     logger.warning(f"⚠️ comtypes 라이브러리 없음: {e} - COM 방식 사용 불가")
+
+# pywin32 라이브러리를 안전하게 import (UNC 경로 변환용)
+try:
+    import win32api
+    import win32con
+    WIN32_AVAILABLE = True
+    logger.info("✅ pywin32 라이브러리 로드 완료 - UNC 경로 변환 가능")
+except ImportError as e:
+    WIN32_AVAILABLE = False
+    logger.warning(f"⚠️ pywin32 라이브러리 없음: {e} - net use 명령어로 대체")
 
 
 class ComPowerPointConverter:
@@ -77,12 +91,85 @@ class ComPowerPointConverter:
         
         logger.info(f"COM PowerPoint Converter 초기화: 사용 가능={self.is_available()}")
     
+    def _convert_to_unc_path(self, file_path: str) -> str:
+        """
+        스마트 경로 변환: 네트워크 드라이브면 UNC로, 로컬이면 그대로
+        
+        Args:
+            file_path: 원본 파일 경로 (예: F:\\presentation.pptx)
+            
+        Returns:
+            변환된 경로 (UNC 또는 원본)
+        """
+        try:
+            # 절대 경로로 변환
+            abs_path = os.path.abspath(file_path)
+            
+            # 드라이브 문자 확인 (예: F:)
+            if len(abs_path) < 2 or abs_path[1] != ':':
+                logger.debug(f"드라이브 문자 없음, 원본 경로 사용: {abs_path}")
+                return abs_path
+            
+            drive = abs_path[:2]  # "F:"
+            
+            # 로컬 드라이브 확인 (C:, D: 등)
+            local_drives = ['C:', 'D:', 'E:']  # 일반적인 로컬 드라이브
+            if drive in local_drives:
+                logger.debug(f"로컬 드라이브 감지, 원본 경로 사용: {abs_path}")
+                return abs_path
+            
+            logger.info(f"🔍 네트워크 드라이브 감지: {drive}")
+            
+            # 방법 1 시도: pywin32를 사용한 UNC 변환
+            if WIN32_AVAILABLE:
+                try:
+                    unc_path = win32api.WNetGetUniversalName(abs_path, win32con.UNIVERSAL_NAME_INFO_LEVEL)
+                    logger.info(f"✅ pywin32로 UNC 변환 성공: {abs_path} → {unc_path}")
+                    return unc_path
+                except Exception as e:
+                    logger.warning(f"⚠️ pywin32 UNC 변환 실패: {e}, net use 시도...")
+            else:
+                logger.debug("pywin32 없음, net use 명령어로 시도")
+            
+            # 방법 2 시도: net use 명령어를 사용한 매핑 정보 확인
+            try:
+                result = subprocess.run(['net', 'use'], 
+                                      capture_output=True, text=True, 
+                                      encoding='cp949', timeout=10)
+                
+                if result.returncode == 0:
+                    for line in result.stdout.split('\n'):
+                        if drive in line:
+                            # UNC 경로 추출 (\\\\server\\share 형태)
+                            match = re.search(r'\\\\[^\s]+', line)
+                            if match:
+                                unc_base = match.group()
+                                unc_path = abs_path.replace(drive, unc_base)
+                                logger.info(f"✅ net use로 UNC 변환 성공: {abs_path} → {unc_path}")
+                                return unc_path
+                
+                logger.warning(f"⚠️ net use에서 {drive} 매핑 정보를 찾을 수 없음")
+                
+            except subprocess.TimeoutExpired:
+                logger.warning("⚠️ net use 명령어 시간 초과")
+            except Exception as e:
+                logger.warning(f"⚠️ net use 명령어 실행 실패: {e}")
+            
+            # 모든 방법 실패 시 원본 경로 사용
+            logger.warning(f"❌ UNC 변환 실패, 원본 경로 사용: {abs_path}")
+            logger.warning(f"   💡 F: 드라이브에서 오류 발생 시 관리자에게 문의하세요")
+            return abs_path
+            
+        except Exception as e:
+            logger.error(f"❌ 경로 변환 중 예상치 못한 오류: {e}")
+            return file_path  # 오류 시 원본 반환
+    
     def _check_office_installation(self) -> bool:
         """Microsoft Office 설치 여부 확인"""
         try:
             # PowerPoint 애플리케이션 객체 생성 시도
             with self._lock:
-                ppt_app = comtypes.client.CreateObject("PowerPoint.Application")
+                ppt_app = comtypes_client.CreateObject("PowerPoint.Application")
                 if ppt_app:
                     # 즉시 종료 (테스트 목적이므로)
                     try:
@@ -192,7 +279,7 @@ class ComPowerPointConverter:
             with self._lock:  # COM 객체는 스레드 안전하지 않음
                 # PowerPoint 애플리케이션 시작 (백그라운드)
                 logger.info("   📱 PowerPoint 애플리케이션 시작 중...")
-                ppt_app = comtypes.client.CreateObject("PowerPoint.Application")
+                ppt_app = comtypes_client.CreateObject("PowerPoint.Application")
                 ppt_app.Visible = 0  # 백그라운드 실행
                 ppt_app.DisplayAlerts = 0  # 알림 비활성화
                 
@@ -203,11 +290,12 @@ class ComPowerPointConverter:
                 except:
                     logger.debug("매크로 비활성화 설정 불가 (Office 버전 제한)")
                 
-                # 프레젠테이션 열기
+                # 프레젠테이션 열기 (UNC 경로 변환 적용)
                 logger.info("   📂 프레젠테이션 열기 중...")
-                abs_ppt_path = os.path.abspath(ppt_file_path)
+                smart_ppt_path = self._convert_to_unc_path(ppt_file_path)
+                logger.info(f"   🔄 경로 변환: {ppt_file_path} → {smart_ppt_path}")
                 presentation = ppt_app.Presentations.Open(
-                    abs_ppt_path,
+                    smart_ppt_path,
                     ReadOnly=1,  # 읽기 전용
                     Untitled=1,  # 제목 없이
                     WithWindow=0  # 창 없이
