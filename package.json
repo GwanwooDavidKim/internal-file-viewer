@@ -1,5 +1,18 @@
 {
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "## 프로젝트 개요",
+  "main": "index.js",
   "dependencies": {
-    "@octokit/rest": "^22.0.0"
-  }
+    "@octokit/rest": "^22.0.0",
+    "before-after-hook": "^4.0.0",
+    "fast-content-type-parse": "^3.0.0",
+    "universal-user-agent": "^7.0.3"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
