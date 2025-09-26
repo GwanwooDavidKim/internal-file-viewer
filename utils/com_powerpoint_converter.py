@@ -72,15 +72,15 @@ class ComPowerPointConverter:
         self.cache_max_size = 1024 * 1024 * 1024  # 1GB
         self.cache_max_age = timedelta(days=7)  # 7일
         
+        # 스레드 락 (COM 객체는 스레드 안전하지 않음) - 먼저 정의
+        self._lock = threading.Lock()
+        
         # COM 사용 가능 여부 확인
         self.com_available = COM_AVAILABLE
         if self.com_available:
             self.office_available = self._check_office_installation()
         else:
             self.office_available = False
-        
-        # 스레드 락 (COM 객체는 스레드 안전하지 않음)
-        self._lock = threading.Lock()
         
         print(f"🚀 ComPowerPointConverter 초기화")
         print(f"   📁 캐시 폴더: {self.cache_dir}")
