@@ -17,8 +17,10 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .ppt_to_pdf_converter import get_converter
+from .com_powerpoint_converter import get_com_converter
 from .pdf_handler import PdfHandler
 import logging
+import time
 
 # PIL을 안전하게 import
 try:
@@ -45,11 +47,25 @@ class PowerPointHandler:
     
     def __init__(self):
         """PowerPointHandler 인스턴스를 초기화합니다."""
-        self.supported_extensions = ['.pptx']  # python-pptx는 .pptx만 지원 (.ppt는 LibreOffice PDF 변환으로만 미리보기 가능)
-        
-        # PDF 변환기와 PDF 핸들러 초기화
-        self.pdf_converter = get_converter()
+        # PDF 변환기와 PDF 핸들러 초기화 (먼저 생성)
+        # Windows+Office 환경에서는 COM 방식 우선 사용
+        self.com_converter = get_com_converter()
+        self.pdf_converter = get_converter()  # 폴백용
         self.pdf_handler = PdfHandler()
+        
+        # 사용할 변환기 결정
+        if self.com_converter.is_available():
+            self.active_converter = self.com_converter
+            self.converter_type = "COM"
+            self.supported_extensions = ['.ppt', '.pptx']  # COM은 모든 PowerPoint 형식 지원
+            print("   🚀 Microsoft Office COM 방식 사용 (고성능)")
+            print("   📄 지원 형식: .ppt, .pptx")
+        else:
+            self.active_converter = self.pdf_converter
+            self.converter_type = "LibreOffice" 
+            self.supported_extensions = ['.pptx']  # LibreOffice는 .pptx만 안정적
+            print("   📋 LibreOffice 방식 사용 (호환성)")
+            print("   📄 지원 형식: .pptx")
         
         # 현재 연결된 파일 경로 (호환성을 위해)
         self.current_file_path = None
@@ -58,6 +74,7 @@ class PowerPointHandler:
         print("   ✅ 사용자 PowerPoint 작업에 영향 없음")
         print("   ✅ 원본 파일 락 없음") 
         print("   ✅ '원본 열기' 기능 완벽 작동")
+        print(f"   ⚡ 활성 변환기: {self.converter_type}")
     
     def open_persistent_connection(self, file_path: str) -> bool:
         """
@@ -81,6 +98,15 @@ class PowerPointHandler:
         self.current_file_path = None  # 현재 파일 경로 초기화
         logger.info("🔄 PPT → PDF 방식 정리 완료")
         logger.info("   ✅ 사용자 PowerPoint에 영향 없이 안전하게 종료")
+    
+    def is_connected(self) -> bool:
+        """
+        호환성을 위한 메소드 - 연결 상태 확인
+        
+        Returns:
+            bool: 파일이 연결되어 있는지 여부
+        """
+        return self.current_file_path is not None
     
     def render_slide_fast(self, slide_number: int, width: int = 800, height: int = 600) -> Optional['Image.Image']:
         """
@@ -157,8 +183,10 @@ class PowerPointHandler:
         try:
             logger.info(f"🔄 PPT → PDF → 이미지 렌더링 시작: {os.path.basename(file_path)}, 슬라이드 {slide_number + 1}")
             
-            # 1단계: PPT를 PDF로 변환 (캐시 활용)
-            pdf_path = self.pdf_converter.convert_to_pdf(file_path)
+            # 1단계: PPT를 PDF로 변환 (캐시 활용) - 활성 변환기 사용
+            start_time = time.time()
+            pdf_path = self.active_converter.convert_to_pdf(file_path)
+            conversion_time = time.time() - start_time
             if not pdf_path:
                 logger.error("❌ PPT → PDF 변환 실패")
                 return None
@@ -173,7 +201,7 @@ class PowerPointHandler:
             )
             
             if image:
-                logger.info(f"✅ 슬라이드 {slide_number + 1} 렌더링 완료!")
+                logger.info(f"✅ 슬라이드 {slide_number + 1} 렌더링 완료! ({self.converter_type} 변환: {conversion_time:.1f}초)")
                 return image
             else:
                 logger.error(f"❌ PDF 페이지 {slide_number} 렌더링 실패")
@@ -267,6 +295,20 @@ class PowerPointHandler:
         Returns:
             str: 추출된 전체 텍스트
         """
+        # .ppt 파일은 python-pptx로 직접 읽을 수 없으므로 PDF에서 텍스트 추출
+        if file_path.lower().endswith('.ppt'):
+            try:
+                logger.info(f"🔄 .ppt 파일 텍스트 추출: PDF 변환 방식 사용")
+                pdf_path = self.active_converter.convert_to_pdf(file_path)
+                if pdf_path:
+                    return self.pdf_handler.extract_text(pdf_path)
+                else:
+                    return f".ppt 파일 텍스트 추출 실패: {os.path.basename(file_path)}"
+            except Exception as e:
+                logger.error(f".ppt 텍스트 추출 오류: {e}")
+                return f".ppt 파일 텍스트 추출 오류: {e}"
+        
+        # .pptx 파일은 python-pptx로 직접 추출
         try:
             prs = Presentation(file_path)
             all_text = []
@@ -312,6 +354,11 @@ class PowerPointHandler:
             if not os.path.exists(file_path):
                 return {'error': '파일을 찾을 수 없습니다'}
             
+            # .ppt 파일은 python-pptx로 읽을 수 없으므로 PDF 기반 정보 추출
+            if file_path.lower().endswith('.ppt'):
+                return self._get_ppt_info_via_pdf(file_path)
+            
+            # .pptx 파일은 python-pptx로 직접 처리
             prs = Presentation(file_path)
             
             # 기본 정보
@@ -365,8 +412,10 @@ class PowerPointHandler:
                     'total_shapes': len(slide.shapes),
                 })
             
-            # PDF 변환 가능 여부 확인
-            conversion_info = self.pdf_converter.get_cache_info()
+            # PDF 변환 가능 여부 확인 (활성 변환기에서 직접)
+            conversion_info = self.active_converter.get_cache_info()
+            conversion_available = conversion_info.get('converter_available', 
+                                                      conversion_info.get('libreoffice_available', False))
             
             info = {
                 'filename': os.path.basename(file_path),
@@ -379,7 +428,8 @@ class PowerPointHandler:
                 'total_charts': total_charts,
                 'total_tables': total_tables,
                 'slides_summary': slides_summary,
-                'conversion_available': conversion_info.get('libreoffice_available', False),
+                'conversion_available': conversion_available,
+                'converter_type': self.converter_type,
                 'cache_info': conversion_info,
                 'metadata': {
                     'title': getattr(core_props, 'title', None),
@@ -396,6 +446,63 @@ class PowerPointHandler:
         except Exception as e:
             logger.error(f"프레젠테이션 정보 조회 오류: {e}")
             return {'error': f'프레젠테이션 정보 조회 오류: {e}'}
+    
+    def _get_ppt_info_via_pdf(self, file_path: str) -> Dict[str, Any]:
+        """
+        .ppt 파일의 정보를 PDF 변환을 통해 추출합니다.
+        
+        Args:
+            file_path (str): .ppt 파일 경로
+            
+        Returns:
+            Dict[str, Any]: 프레젠테이션 정보
+        """
+        try:
+            logger.info(f"🔄 .ppt 파일 정보 추출: PDF 변환 방식 사용")
+            
+            # 기본 파일 정보
+            file_size = os.path.getsize(file_path)
+            
+            # PDF로 변환하여 슬라이드 수 확인
+            pdf_path = self.active_converter.convert_to_pdf(file_path)
+            slide_count = 0
+            if pdf_path:
+                # PDF 핸들러로 페이지 수 확인 (= 슬라이드 수)
+                doc = self.pdf_handler._open_document(pdf_path)
+                if doc:
+                    slide_count = len(doc)
+                    doc.close()
+            
+            # 변환 정보
+            conversion_info = self.active_converter.get_cache_info()
+            conversion_available = conversion_info.get('converter_available', 
+                                                      conversion_info.get('libreoffice_available', False))
+            
+            return {
+                'filename': os.path.basename(file_path),
+                'file_size': file_size,
+                'file_size_mb': round(file_size / (1024 * 1024), 2),
+                'slide_count': slide_count,
+                'file_type': '.ppt (Legacy PowerPoint)',
+                'conversion_available': conversion_available,
+                'converter_type': self.converter_type,
+                'cache_info': conversion_info,
+                'note': '.ppt 파일은 PDF 변환을 통해서만 미리보기 가능합니다.',
+                'slides_summary': [{'slide_number': i+1, 'title': f'슬라이드 {i+1}', 'note': 'PDF 변환 방식'} 
+                                  for i in range(slide_count)],
+                'metadata': {
+                    'title': None,
+                    'subject': None, 
+                    'author': None,
+                    'created': None,
+                    'last_modified_by': None,
+                    'modified': None,
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f".ppt 파일 정보 추출 오류: {e}")
+            return {'error': f'.ppt 파일 정보 추출 오류: {e}'}
     
     def search_in_presentation(self, file_path: str, search_term: str, max_results: int = 10) -> List[Dict[str, Any]]:
         """
