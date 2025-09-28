@@ -6,7 +6,7 @@
 """
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, 
                             QPushButton, QListWidget, QListWidgetItem, QLabel,
-                            QProgressBar, QFrame, QSplitter, QTextEdit, QComboBox, QMessageBox)
+                            QProgressBar, QFrame, QSplitter, QTextEdit, QComboBox, QMessageBox, QApplication)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont
 import os
@@ -427,12 +427,27 @@ class SearchWidget(QWidget):
             self.results_label.setText("검색 결과 - 2글자 이상 입력해주세요")
             return
         
+        # 🔍 조회중 상태 표시
+        self.results_label.setText(f"🔍 '{query}' 조회 중...")
+        self.results_list.clear()
+        
+        # 조회중 표시 아이템 추가
+        loading_item = QListWidgetItem("⏳ 검색 중입니다...")
+        loading_item.setData(Qt.ItemDataRole.UserRole, None)
+        self.results_list.addItem(loading_item)
+        
+        # UI 업데이트 강제 실행
+        QApplication.processEvents()
+        
         # 검색 모드에 따라 다른 검색 수행
         if self.search_mode == "content":
             # 파일 내용 검색 - 인덱싱 완료 체크
             if not self.indexer or len(self.indexer.indexed_paths) == 0:
                 QMessageBox.warning(self, "인덱싱 필요", 
                                    "파일 내용 검색을 위해서는 먼저 인덱싱을 완료해야 합니다.\n\n'📂 폴더 인덱싱' 버튼을 클릭하여 인덱싱을 시작하세요.")
+                # 조회중 상태 제거
+                self.results_list.clear()
+                self.results_label.setText("검색 결과")
                 return
             search_results = self.indexer.search_files(query, max_results=100)
         else:
@@ -443,7 +458,7 @@ class SearchWidget(QWidget):
                 # 폴백: 기존 방식
                 search_results = self.search_by_filename(query, max_results=100)
         
-        # 결과 표시
+        # 결과 표시 - 조회중 상태 제거
         self.results_list.clear()
         
         if not search_results:
