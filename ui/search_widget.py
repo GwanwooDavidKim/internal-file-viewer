@@ -59,6 +59,11 @@ class SearchWidget(QWidget):
         self.current_directory = ""
         self.current_selected_file = None  # 현재 선택된 파일 경로
         self.search_mode = "content"  # "content" 또는 "filename"
+        
+        # 🆕 검색 결과 및 정렬 상태 
+        self.current_search_results = []
+        self.current_sort_mode = "📊 관련성 순 (기본)"
+        
         self.setup_ui()
         
         # 자동 검색 제거 (사용자 요청: 검색 버튼과 엔터키만 사용)
@@ -134,6 +139,30 @@ class SearchWidget(QWidget):
             }}
         """)
         search_layout.addWidget(self.indexed_extensions_label)
+        
+        # 🆕 검색 결과 정렬 옵션
+        sort_layout = QHBoxLayout()
+        
+        sort_label = QLabel("정렬 순서:")
+        sort_layout.addWidget(sort_label)
+        
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItems([
+            "📊 관련성 순 (기본)",
+            "📁 파일명 (오름차순)", 
+            "📁 파일명 (내림차순)",
+            "📅 최신 변경일 순",
+            "📅 오래된 변경일 순",
+            "📏 파일크기 (큰순)",
+            "📏 파일크기 (작은순)"
+        ])
+        self.sort_combo.setCurrentIndex(0)
+        self.sort_combo.currentTextChanged.connect(self.on_sort_changed)
+        sort_layout.addWidget(self.sort_combo)
+        
+        sort_layout.addStretch()
+        
+        search_layout.addLayout(sort_layout)
         
         # 진행률 표시
         self.progress_bar = QProgressBar()
@@ -458,30 +487,9 @@ class SearchWidget(QWidget):
                 # 폴백: 기존 방식
                 search_results = self.search_by_filename(query, max_results=100)
         
-        # 결과 표시 - 조회중 상태 제거
-        self.results_list.clear()
-        
-        if not search_results:
-            self.results_label.setText(f"검색 결과 - '{query}'에 대한 결과 없음")
-            return
-        
-        self.results_label.setText(f"검색 결과 - '{query}' ({len(search_results)}개)")
-        
-        for result in search_results:
-            item = QListWidgetItem()
-            
-            # 결과 항목 텍스트 구성
-            filename = result['filename']
-            file_type = result['file_type'].upper()
-            file_size = result['file_size_mb']
-            
-            item_text = f"📄 {filename} ({file_type}, {file_size}MB)"
-            item.setText(item_text)
-            
-            # 결과 데이터 저장
-            item.setData(Qt.ItemDataRole.UserRole, result)
-            
-            self.results_list.addItem(item)
+        # 🆕 검색 결과 저장 및 정렬하여 표시
+        self.current_search_results = search_results
+        self._display_sorted_results(query)
     
     def on_result_selected(self, item: QListWidgetItem):
         """검색 결과 선택 시 호출됩니다."""
@@ -494,6 +502,123 @@ class SearchWidget(QWidget):
             self.open_viewer_button.setEnabled(True)
             self.open_original_button.setEnabled(True)
             self.open_folder_button.setEnabled(True)
+    
+    def on_sort_changed(self, sort_text: str):
+        """정렬 방식 변경 시 호출됩니다."""
+        self.current_sort_mode = sort_text
+        if self.current_search_results:
+            # 현재 검색 결과를 새로운 정렬 방식으로 다시 표시
+            self._display_sorted_results(self.search_input.text().strip())
+    
+    def _sort_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """검색 결과를 현재 정렬 모드에 따라 정렬합니다."""
+        if not results:
+            return results
+        
+        sort_mode = self.current_sort_mode
+        
+        if "관련성" in sort_mode:
+            # 기본 관련성 순 (이미 정렬되어 있음)
+            return results
+        elif "파일명 (오름차순)" in sort_mode:
+            return sorted(results, key=lambda x: x['filename'].lower())
+        elif "파일명 (내림차순)" in sort_mode:
+            return sorted(results, key=lambda x: x['filename'].lower(), reverse=True)
+        elif "최신 변경일" in sort_mode:
+            # 파일 변경일 기준 정렬 (최신순)
+            return sorted(results, key=lambda x: self._get_file_mtime(x['file_path']), reverse=True)
+        elif "오래된 변경일" in sort_mode:
+            # 파일 변경일 기준 정렬 (오래된순)
+            return sorted(results, key=lambda x: self._get_file_mtime(x['file_path']))
+        elif "파일크기 (큰순)" in sort_mode:
+            return sorted(results, key=lambda x: x.get('file_size_mb', 0), reverse=True)
+        elif "파일크기 (작은순)" in sort_mode:
+            return sorted(results, key=lambda x: x.get('file_size_mb', 0))
+        else:
+            return results
+    
+    def _get_file_mtime(self, file_path: str) -> float:
+        """파일의 수정 시간을 반환합니다."""
+        try:
+            import os
+            return os.path.getmtime(file_path)
+        except:
+            return 0.0
+    
+    def _group_by_extension(self, results: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """검색 결과를 확장자별로 그룹핑합니다."""
+        groups = {}
+        
+        # 확장자 우선순위 정의 (사용자 요청: ppt → pdf → txt 등 순서)
+        extension_priority = {
+            'ppt': 1, 'pptx': 1,
+            'pdf': 2,
+            'doc': 3, 'docx': 3,
+            'txt': 4,
+            'xls': 5, 'xlsx': 5,
+            'jpg': 6, 'jpeg': 6, 'png': 6, 'gif': 6, 'bmp': 6
+        }
+        
+        for result in results:
+            ext = result.get('file_type', 'unknown').lower()
+            if ext not in groups:
+                groups[ext] = []
+            groups[ext].append(result)
+        
+        # 확장자별로 정렬된 딕셔너리 반환 (우선순위 순서)
+        sorted_groups = {}
+        for ext in sorted(groups.keys(), key=lambda x: extension_priority.get(x, 99)):
+            sorted_groups[ext] = groups[ext]
+        
+        return sorted_groups
+    
+    def _display_sorted_results(self, query: str):
+        """정렬된 검색 결과를 표시합니다."""
+        self.results_list.clear()
+        
+        if not self.current_search_results:
+            self.results_label.setText(f"검색 결과 - '{query}'에 대한 결과 없음")
+            return
+        
+        # 🔄 정렬 수행
+        sorted_results = self._sort_results(self.current_search_results)
+        
+        # 🗂️ 확장자별 그룹핑
+        grouped_results = self._group_by_extension(sorted_results)
+        
+        total_count = len(sorted_results)
+        self.results_label.setText(f"검색 결과 - '{query}' ({total_count}개) | {self.current_sort_mode}")
+        
+        # 그룹별로 결과 표시
+        for ext, ext_results in grouped_results.items():
+            # 확장자 헤더 추가
+            if len(grouped_results) > 1:  # 여러 확장자가 있을 때만 헤더 표시
+                header_item = QListWidgetItem()
+                header_text = f"📁 {ext.upper()} 파일 ({len(ext_results)}개)"
+                header_item.setText(header_text)
+                header_item.setData(Qt.ItemDataRole.UserRole, None)  # 헤더는 선택 불가
+                
+                # 헤더 스타일 설정
+                header_item.setBackground(QApplication.palette().alternateBase())
+                self.results_list.addItem(header_item)
+            
+            # 해당 확장자의 파일들 표시
+            for result in ext_results:
+                item = QListWidgetItem()
+                
+                # 결과 항목 텍스트 구성
+                filename = result['filename']
+                file_type = result['file_type'].upper()
+                file_size = result['file_size_mb']
+                
+                # 📄 파일 아이콘과 정보 표시
+                item_text = f"  📄 {filename} ({file_type}, {file_size}MB)"
+                item.setText(item_text)
+                
+                # 결과 데이터 저장
+                item.setData(Qt.ItemDataRole.UserRole, result)
+                
+                self.results_list.addItem(item)
     
     def add_file_to_index(self, file_path: str):
         """
