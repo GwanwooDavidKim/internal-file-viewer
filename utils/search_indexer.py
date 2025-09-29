@@ -187,23 +187,35 @@ class SearchIndex:
                 if not keywords:
                     return []
                 
+                # 🐛 디버깅: 다중 키워드 처리 로그
+                print(f"🔍 다중 키워드 검색: {keywords}")
+                
                 # 각 키워드별로 토큰화하고 모든 키워드가 포함된 파일만 찾기
                 all_keyword_results = []
                 for keyword in keywords:
                     keyword_tokens = self._tokenize(keyword)
-                    if keyword_tokens:
-                        keyword_files = self._search_keyword(keyword_tokens)
+                    keyword_files = self._search_keyword(keyword_tokens)
+                    print(f"  키워드 '{keyword}' → 토큰: {keyword_tokens} → 결과: {len(keyword_files)}개 파일")
+                    
+                    if keyword_tokens:  # 🐛 수정: 토큰이 있으면 결과(빈 결과도) 포함시키기
                         all_keyword_results.append(keyword_files)
                 
                 if not all_keyword_results:
+                    print("  ❌ 모든 키워드가 결과 없음")
                     return []
+                
+                print(f"  📊 각 키워드별 결과 수: {[len(kr) for kr in all_keyword_results]}")
                 
                 # 모든 키워드가 포함된 파일들만 교집합으로 찾기
                 result_files = all_keyword_results[0]
-                for keyword_files in all_keyword_results[1:]:
+                for i, keyword_files in enumerate(all_keyword_results[1:], 1):
+                    before_count = len(result_files)
                     result_files &= keyword_files
+                    after_count = len(result_files)
+                    print(f"  🔗 교집합 {i}: {before_count} ∩ {len(keyword_files)} = {after_count}")
                 
                 result_files = list(result_files)[:max_results]
+                print(f"  ✅ 최종 결과: {len(result_files)}개 파일")
                 
                 # 전체 쿼리 토큰화 (하이라이팅용)
                 all_tokens = []
