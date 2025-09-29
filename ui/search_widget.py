@@ -495,6 +495,15 @@ class SearchWidget(QWidget):
         """검색 결과 선택 시 호출됩니다."""
         result = item.data(Qt.ItemDataRole.UserRole)
         
+        # 🗂️ 헤더 항목이나 선택 불가 항목은 무시
+        if result is None:
+            # 버튼들 비활성화 (헤더 선택 시)
+            self.open_viewer_button.setEnabled(False)
+            self.open_original_button.setEnabled(False)
+            self.open_folder_button.setEnabled(False)
+            self.current_selected_file = None
+            return
+        
         if result:
             self.current_selected_file = result['file_path']
             
