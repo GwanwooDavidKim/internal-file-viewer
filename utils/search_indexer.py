@@ -129,12 +129,48 @@ class SearchIndex:
             for token in to_remove:
                 del self.index[token]
     
+    def _search_keyword(self, query_tokens: List[str]) -> set:
+        """
+        주어진 토큰들로 검색을 수행하고 매칭되는 파일들의 집합을 반환합니다.
+        
+        Args:
+            query_tokens (List[str]): 검색할 토큰들
+            
+        Returns:
+            set: 매칭되는 파일 경로들의 집합
+        """
+        # 각 토큰별로 매칭되는 파일 찾기
+        token_results = []
+        for token in query_tokens:
+            matching_files = set()
+            
+            # 정확히 일치하는 토큰
+            if token in self.index:
+                matching_files.update(self.index[token])
+            
+            # 부분 일치하는 토큰 (접두사 매칭)
+            for indexed_token in self.index:
+                if indexed_token.startswith(token) or token in indexed_token:
+                    matching_files.update(self.index[indexed_token])
+            
+            token_results.append(matching_files)
+        
+        if not token_results:
+            return set()
+        
+        # AND 연산 (모든 토큰이 포함된 파일)
+        result_files = token_results[0]
+        for token_result in token_results[1:]:
+            result_files &= token_result
+        
+        return result_files
+    
     def search(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
         """
         검색 쿼리를 실행합니다.
         
         Args:
-            query (str): 검색 쿼리
+            query (str): 검색 쿼리 (쉼표로 분리된 다중 키워드 지원)
             max_results (int): 최대 결과 수
             
         Returns:
@@ -144,48 +180,43 @@ class SearchIndex:
             if not query.strip():
                 return []
             
-            # 쿼리 토큰화
-            query_tokens = self._tokenize(query)
-            if not query_tokens:
-                return []
-            
-            # 각 토큰별로 매칭되는 파일 찾기
-            token_results = []
-            for token in query_tokens:
-                matching_files = set()
+            # 🆕 쉼표 기준 다중 키워드 분리 지원
+            if ',' in query:
+                # 쉼표로 분리된 키워드들 처리
+                keywords = [kw.strip() for kw in query.split(',') if kw.strip()]
+                if not keywords:
+                    return []
                 
-                # 정확히 일치하는 토큰
-                if token in self.index:
-                    matching_files.update(self.index[token])
+                # 각 키워드별로 토큰화하고 모든 키워드가 포함된 파일만 찾기
+                all_keyword_results = []
+                for keyword in keywords:
+                    keyword_tokens = self._tokenize(keyword)
+                    if keyword_tokens:
+                        keyword_files = self._search_keyword(keyword_tokens)
+                        all_keyword_results.append(keyword_files)
                 
-                # 부분 일치하는 토큰 (접두사 매칭)
-                for indexed_token in self.index:
-                    if indexed_token.startswith(token) or token in indexed_token:
-                        matching_files.update(self.index[indexed_token])
+                if not all_keyword_results:
+                    return []
                 
-                token_results.append(matching_files)
-            
-            if not token_results:
-                return []
-            
-            # AND 연산 (모든 토큰이 포함된 파일)
-            result_files = token_results[0]
-            for token_result in token_results[1:]:
-                result_files &= token_result
-            
-            # 결과가 적으면 OR 연산도 포함
-            if len(result_files) < max_results // 2:
-                or_results = set()
-                for token_result in token_results:
-                    or_results |= token_result
+                # 모든 키워드가 포함된 파일들만 교집합으로 찾기
+                result_files = all_keyword_results[0]
+                for keyword_files in all_keyword_results[1:]:
+                    result_files &= keyword_files
                 
-                # AND 결과를 우선하고 OR 결과를 추가
-                result_files = list(result_files) + list(or_results - result_files)
+                result_files = list(result_files)[:max_results]
+                
+                # 전체 쿼리 토큰화 (하이라이팅용)
+                all_tokens = []
+                for keyword in keywords:
+                    all_tokens.extend(self._tokenize(keyword))
+                query_tokens = all_tokens
             else:
-                result_files = list(result_files)
-            
-            # 결과 제한
-            result_files = result_files[:max_results]
+                # 기존 단일 키워드 검색
+                query_tokens = self._tokenize(query)
+                if not query_tokens:
+                    return []
+                
+                result_files = list(self._search_keyword(query_tokens))[:max_results]
             
             # 검색 결과 구성
             search_results = []
