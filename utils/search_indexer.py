@@ -880,7 +880,13 @@ class SearchIndexer:
                 cache_data = json.load(f)
             
             results = []
-            query_lower = query.lower()
+            
+            # 🆕 다중 키워드 지원 추가
+            if ',' in query:
+                keywords = [kw.strip().lower() for kw in query.split(',') if kw.strip()]
+                print(f"  🔍 다중 키워드 검색: {keywords}")
+            else:
+                keywords = [query.lower()]
             
             # 파일별로 검색 수행
             for relative_path, file_data in cache_data.get("files", {}).items():
@@ -891,18 +897,33 @@ class SearchIndexer:
                 # 파일명 + 내용에서 검색
                 title = file_data.get("title", "").lower()
                 content = file_data.get("content", "").lower()
+                search_text = f"{title} {content}"
+                
+                # 🆕 모든 키워드가 포함되어야 함 (AND 검색)
+                all_keywords_found = True
+                filename_matches = 0
+                content_matches = 0
+                
+                for keyword in keywords:
+                    if keyword not in search_text:
+                        all_keywords_found = False
+                        break
+                    
+                    # 개별 키워드별 매칭 체크
+                    if keyword in title:
+                        filename_matches += 1
+                    if keyword in content:
+                        content_matches += 1
                 
                 # 매칭 체크
-                filename_match = query_lower in title
-                content_match = query_lower in content
+                filename_match = filename_matches > 0
+                content_match = content_matches > 0
                 
-                if filename_match or content_match:
+                if all_keywords_found and (filename_match or content_match):
                     # 관련성 점수 계산
                     relevance_score = 0.0
-                    if filename_match:
-                        relevance_score += 2.0  # 파일명 매칭은 높은 점수
-                    if content_match:
-                        relevance_score += 1.0  # 내용 매칭
+                    relevance_score += filename_matches * 2.0  # 파일명 매칭 키워드별 점수
+                    relevance_score += content_matches * 1.0   # 내용 매칭 키워드별 점수
                     
                     # 매칭된 컨텍스트 추출
                     preview = self._extract_context_from_content(
