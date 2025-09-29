@@ -502,13 +502,7 @@ class PowerPointHandler:
             slide_count = 0
             if pdf_path:
                 # PDF 핸들러로 페이지 수 확인 (= 슬라이드 수)
-                doc = self.pdf_handler._open_document(pdf_path)
-                if doc:
-                    slide_count = len(doc)
-                    try:
-                        doc.close()
-                    except:
-                        pass
+                slide_count = self.pdf_handler.get_page_count(pdf_path)
             
             # 변환 정보
             conversion_info = self.active_converter.get_cache_info()
