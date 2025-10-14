@@ -78,36 +78,51 @@ class SearchWidget(QWidget):
         search_layout = QVBoxLayout()
         search_frame.setLayout(search_layout)
         
-        # 검색 입력
-        search_input_layout = QHBoxLayout()
+        # 🆕 파일명 검색 입력
+        filename_search_layout = QHBoxLayout()
+        
+        filename_label = QLabel("📝 파일명:")
+        filename_label.setMinimumWidth(60)
+        filename_search_layout.addWidget(filename_label)
+        
+        self.filename_search_input = QLineEdit()
+        self.filename_search_input.setPlaceholderText("파일명 필터 (쉼표로 구분, 예: TFT,BOE)")
+        self.filename_search_input.returnPressed.connect(self.perform_search)
+        filename_search_layout.addWidget(self.filename_search_input)
+        
+        search_layout.addLayout(filename_search_layout)
+        
+        # 🆕 내용 검색 입력
+        content_search_layout = QHBoxLayout()
+        
+        content_label = QLabel("📄 내용:")
+        content_label.setMinimumWidth(60)
+        content_search_layout.addWidget(content_label)
         
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("검색어 입력... (2글자 이상)")
+        self.search_input.setPlaceholderText("내용 검색 (쉼표로 구분, 띄어쓰기 무시, 예: 자사,Fab,별,Capa)")
         self.search_input.textChanged.connect(self.on_search_text_changed)
         self.search_input.returnPressed.connect(self.perform_search)
-        search_input_layout.addWidget(self.search_input)
+        content_search_layout.addWidget(self.search_input)
         
         self.search_button = QPushButton("🔍 검색")
         self.search_button.clicked.connect(self.perform_search)
-        search_input_layout.addWidget(self.search_button)
+        content_search_layout.addWidget(self.search_button)
         
-        search_layout.addLayout(search_input_layout)
+        search_layout.addLayout(content_search_layout)
         
-        # 검색 모드 선택
-        search_mode_layout = QHBoxLayout()
-        
-        mode_label = QLabel("검색 모드:")
-        search_mode_layout.addWidget(mode_label)
-        
-        self.search_mode_combo = QComboBox()
-        self.search_mode_combo.addItems(["📄 파일 내용 검색", "📝 파일명 검색"])
-        self.search_mode_combo.setCurrentIndex(0)  # 기본은 파일 내용 검색
-        self.search_mode_combo.currentTextChanged.connect(self.on_search_mode_changed)
-        search_mode_layout.addWidget(self.search_mode_combo)
-        
-        search_mode_layout.addStretch()
-        
-        search_layout.addLayout(search_mode_layout)
+        # 🆕 검색 도움말
+        help_label = QLabel("💡 팁: 파일명과 내용을 동시에 입력하면 두 조건을 모두 만족하는 파일만 검색됩니다")
+        help_label.setStyleSheet(f"""
+            QLabel {{
+                color: {config.UI_COLORS['text']};
+                font-size: {config.UI_FONTS['small_size']}px;
+                font-style: italic;
+                padding: 5px;
+                background-color: {config.UI_COLORS['background']};
+            }}
+        """)
+        search_layout.addWidget(help_label)
         
         # 인덱싱 컨트롤
         indexing_layout = QHBoxLayout()
@@ -449,15 +464,26 @@ class SearchWidget(QWidget):
             self.results_label.setText("검색 결과")
     
     def perform_search(self):
-        """검색을 수행합니다."""
-        query = self.search_input.text().strip()
+        """검색을 수행합니다 (2단계 필터링 지원)."""
+        # 🆕 파일명 및 내용 검색어 가져오기
+        filename_query = self.filename_search_input.text().strip()
+        content_query = self.search_input.text().strip()
         
-        if len(query) < 2:
-            self.results_label.setText("검색 결과 - 2글자 이상 입력해주세요")
+        # 최소 하나의 검색어는 있어야 함
+        if not filename_query and not content_query:
+            self.results_label.setText("검색 결과 - 파일명 또는 내용 중 하나는 입력해주세요")
             return
         
+        # 검색어 표시용 텍스트 생성
+        search_display = []
+        if filename_query:
+            search_display.append(f"파일명:{filename_query}")
+        if content_query:
+            search_display.append(f"내용:{content_query}")
+        display_text = ", ".join(search_display)
+        
         # 🔍 조회중 상태 표시
-        self.results_label.setText(f"🔍 '{query}' 조회 중...")
+        self.results_label.setText(f"🔍 '{display_text}' 조회 중...")
         self.results_list.clear()
         
         # 조회중 표시 아이템 추가
@@ -468,8 +494,8 @@ class SearchWidget(QWidget):
         # UI 업데이트 강제 실행
         QApplication.processEvents()
         
-        # 검색 모드에 따라 다른 검색 수행
-        if self.search_mode == "content":
+        # 🆕 2단계 필터링 검색
+        if content_query:
             # 파일 내용 검색 - 인덱싱 완료 체크
             if not self.indexer or len(self.indexer.indexed_paths) == 0:
                 QMessageBox.warning(self, "인덱싱 필요", 
@@ -478,18 +504,52 @@ class SearchWidget(QWidget):
                 self.results_list.clear()
                 self.results_label.setText("검색 결과")
                 return
-            search_results = self.indexer.search_files(query, max_results=100)
+            
+            # 내용으로 검색
+            search_results = self.indexer.search_files(content_query, max_results=200)
+            
+            # 🆕 파일명 필터링 (2단계)
+            if filename_query and search_results:
+                search_results = self._filter_by_filename(search_results, filename_query)
         else:
-            # 파일명 검색 - JSON 캐시 활용 (사용자 요청: 고속 검색)
+            # 파일명만 검색
             if hasattr(self.indexer, 'search_files_by_filename_from_json'):
-                search_results = self.indexer.search_files_by_filename_from_json(query, max_results=100)
+                search_results = self.indexer.search_files_by_filename_from_json(filename_query, max_results=100)
             else:
-                # 폴백: 기존 방식
-                search_results = self.search_by_filename(query, max_results=100)
+                search_results = self.search_by_filename(filename_query, max_results=100)
         
         # 🆕 검색 결과 저장 및 정렬하여 표시
         self.current_search_results = search_results
-        self._display_sorted_results(query)
+        self._display_sorted_results(display_text)
+    
+    def _filter_by_filename(self, results: List[Dict[str, Any]], filename_query: str) -> List[Dict[str, Any]]:
+        """파일명으로 검색 결과를 필터링합니다."""
+        # 다중 키워드 지원
+        if ',' in filename_query:
+            keywords = [kw.strip().lower() for kw in filename_query.split(',') if kw.strip()]
+        else:
+            keywords = [filename_query.lower()]
+        
+        # 공백 제거 버전 키워드
+        keywords_no_space = [kw.replace(' ', '').replace('\n', '').replace('\t', '') for kw in keywords]
+        
+        filtered_results = []
+        for result in results:
+            filename = result.get('filename', '').lower()
+            filename_no_space = filename.replace(' ', '').replace('\n', '').replace('\t', '')
+            
+            # 모든 키워드가 파일명에 포함되어야 함
+            all_found = True
+            for i, keyword in enumerate(keywords):
+                keyword_no_space = keywords_no_space[i]
+                if keyword not in filename and keyword_no_space not in filename_no_space:
+                    all_found = False
+                    break
+            
+            if all_found:
+                filtered_results.append(result)
+        
+        return filtered_results
     
     def on_result_selected(self, item: QListWidgetItem):
         """검색 결과 선택 시 호출됩니다."""
@@ -753,16 +813,6 @@ class SearchWidget(QWidget):
         if self.current_selected_file:
             self.open_viewer_button.setEnabled(True)
     
-    def on_search_mode_changed(self):
-        """검색 모드 변경 시 호출됩니다."""
-        current_text = self.search_mode_combo.currentText()
-        
-        if "파일 내용" in current_text:
-            self.search_mode = "content"
-            self.search_input.setPlaceholderText("파일 내용 검색... (2글자 이상)")
-        elif "파일명" in current_text:
-            self.search_mode = "filename"
-            self.search_input.setPlaceholderText("파일명 검색... (확장자 제외, 2글자 이상)")
     
     def search_by_filename(self, query: str, max_results: int = 100):
         """
