@@ -888,6 +888,9 @@ class SearchIndexer:
             else:
                 keywords = [query.lower()]
             
+            # 🆕 공백 제거 버전 키워드 생성 (띄어쓰기 무시 검색용)
+            keywords_no_space = [kw.replace(' ', '').replace('\n', '').replace('\t', '') for kw in keywords]
+            
             # 파일별로 검색 수행
             for relative_path, file_data in cache_data.get("files", {}).items():
                 full_path = file_data.get("full_path", "")
@@ -899,20 +902,30 @@ class SearchIndexer:
                 content = file_data.get("content", "").lower()
                 search_text = f"{title} {content}"
                 
+                # 🆕 공백 제거 버전 텍스트 (띄어쓰기 무시 검색용)
+                title_no_space = title.replace(' ', '').replace('\n', '').replace('\t', '')
+                content_no_space = content.replace(' ', '').replace('\n', '').replace('\t', '')
+                search_text_no_space = f"{title_no_space} {content_no_space}"
+                
                 # 🆕 모든 키워드가 포함되어야 함 (AND 검색)
                 all_keywords_found = True
                 filename_matches = 0
                 content_matches = 0
                 
-                for keyword in keywords:
-                    if keyword not in search_text:
+                for i, keyword in enumerate(keywords):
+                    keyword_no_space = keywords_no_space[i]
+                    
+                    # 일반 검색 + 공백 무시 검색
+                    found_in_text = keyword in search_text or keyword_no_space in search_text_no_space
+                    
+                    if not found_in_text:
                         all_keywords_found = False
                         break
                     
-                    # 개별 키워드별 매칭 체크
-                    if keyword in title:
+                    # 개별 키워드별 매칭 체크 (일반 + 공백 무시)
+                    if keyword in title or keyword_no_space in title_no_space:
                         filename_matches += 1
-                    if keyword in content:
+                    if keyword in content or keyword_no_space in content_no_space:
                         content_matches += 1
                 
                 # 매칭 체크
