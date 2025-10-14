@@ -129,12 +129,13 @@ class SearchIndex:
             for token in to_remove:
                 del self.index[token]
     
-    def _search_keyword(self, query_tokens: List[str]) -> set:
+    def _search_keyword(self, query_tokens: List[str], enable_whitespace_agnostic: bool = True) -> set:
         """
         주어진 토큰들로 검색을 수행하고 매칭되는 파일들의 집합을 반환합니다.
         
         Args:
             query_tokens (List[str]): 검색할 토큰들
+            enable_whitespace_agnostic (bool): 공백 무시 검색 활성화 여부
             
         Returns:
             set: 매칭되는 파일 경로들의 집합
@@ -152,6 +153,17 @@ class SearchIndex:
             for indexed_token in self.index:
                 if indexed_token.startswith(token) or token in indexed_token:
                     matching_files.update(self.index[indexed_token])
+            
+            # 🆕 공백 무시 검색: full_content에서 직접 검색
+            if enable_whitespace_agnostic:
+                token_no_space = token.replace(' ', '').replace('\n', '').replace('\t', '')
+                for file_path, file_info in self.file_info.items():
+                    content = file_info.get('full_content', '').lower()
+                    content_no_space = content.replace(' ', '').replace('\n', '').replace('\t', '')
+                    
+                    # 일반 검색 또는 공백 무시 검색
+                    if token in content or token_no_space in content_no_space:
+                        matching_files.add(file_path)
             
             token_results.append(matching_files)
         
@@ -187,35 +199,24 @@ class SearchIndex:
                 if not keywords:
                     return []
                 
-                # 🐛 디버깅: 다중 키워드 처리 로그
-                print(f"🔍 다중 키워드 검색: {keywords}")
-                
                 # 각 키워드별로 토큰화하고 모든 키워드가 포함된 파일만 찾기
                 all_keyword_results = []
                 for keyword in keywords:
                     keyword_tokens = self._tokenize(keyword)
                     keyword_files = self._search_keyword(keyword_tokens)
-                    print(f"  키워드 '{keyword}' → 토큰: {keyword_tokens} → 결과: {len(keyword_files)}개 파일")
                     
-                    if keyword_tokens:  # 🐛 수정: 토큰이 있으면 결과(빈 결과도) 포함시키기
+                    if keyword_tokens:
                         all_keyword_results.append(keyword_files)
                 
                 if not all_keyword_results:
-                    print("  ❌ 모든 키워드가 결과 없음")
                     return []
-                
-                print(f"  📊 각 키워드별 결과 수: {[len(kr) for kr in all_keyword_results]}")
                 
                 # 모든 키워드가 포함된 파일들만 교집합으로 찾기
                 result_files = all_keyword_results[0]
-                for i, keyword_files in enumerate(all_keyword_results[1:], 1):
-                    before_count = len(result_files)
+                for keyword_files in all_keyword_results[1:]:
                     result_files &= keyword_files
-                    after_count = len(result_files)
-                    print(f"  🔗 교집합 {i}: {before_count} ∩ {len(keyword_files)} = {after_count}")
                 
                 result_files = list(result_files)[:max_results]
-                print(f"  ✅ 최종 결과: {len(result_files)}개 파일")
                 
                 # 전체 쿼리 토큰화 (하이라이팅용)
                 all_tokens = []
@@ -884,7 +885,6 @@ class SearchIndexer:
             # 🆕 다중 키워드 지원 추가
             if ',' in query:
                 keywords = [kw.strip().lower() for kw in query.split(',') if kw.strip()]
-                print(f"  🔍 다중 키워드 검색: {keywords}")
             else:
                 keywords = [query.lower()]
             
