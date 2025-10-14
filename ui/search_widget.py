@@ -345,30 +345,6 @@ class SearchWidget(QWidget):
         self.index_button.setStyleSheet(button_style)
         self.clear_index_button.setStyleSheet(button_style)
         
-        # 검색 모드 드롭다운 스타일
-        combo_style = f"""
-            QComboBox {{
-                background-color: white;
-                border: 2px solid {config.UI_COLORS['secondary']};
-                padding: 6px 12px;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: {config.UI_FONTS['body_size']}px;
-                color: {config.UI_COLORS['text']};
-            }}
-            QComboBox:hover {{
-                border-color: {config.UI_COLORS['accent']};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-            }}
-            QComboBox::down-arrow {{
-                width: 12px;
-                height: 12px;
-            }}
-        """
-        self.search_mode_combo.setStyleSheet(combo_style)
-        
         list_style = f"""
             QListWidget {{
                 background-color: white;
