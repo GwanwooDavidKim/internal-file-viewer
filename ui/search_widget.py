@@ -617,6 +617,27 @@ class SearchWidget(QWidget):
         
         return sorted_groups
     
+    def _group_by_directory(self, results: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """결과를 디렉토리별로 그룹화합니다."""
+        import os
+        groups = {}
+        
+        for result in results:
+            file_path = result.get('file_path', '')
+            directory = os.path.dirname(file_path)
+            
+            # 디렉토리 이름 추출 (전체 경로 대신 마지막 폴더명만)
+            if not directory:
+                directory = "(루트)"
+            
+            if directory not in groups:
+                groups[directory] = []
+            groups[directory].append(result)
+        
+        # 디렉토리명으로 정렬
+        sorted_groups = dict(sorted(groups.items()))
+        return sorted_groups
+    
     def _display_sorted_results(self, query: str):
         """정렬된 검색 결과를 표시합니다."""
         self.results_list.clear()
@@ -647,23 +668,59 @@ class SearchWidget(QWidget):
                 header_item.setBackground(QApplication.palette().alternateBase())
                 self.results_list.addItem(header_item)
             
-            # 해당 확장자의 파일들 표시
-            for result in ext_results:
-                item = QListWidgetItem()
+            # 🆕 디렉토리별로 다시 그룹화
+            dir_groups = self._group_by_directory(ext_results)
+            
+            # 디렉토리별로 결과 표시
+            for directory, dir_results in dir_groups.items():
+                # 🆕 상대 경로 계산 (검색 루트 기준)
+                if directory == "(루트)":
+                    display_path = "(루트)"
+                elif self.current_directory:
+                    try:
+                        # 검색 디렉토리 기준 상대 경로
+                        rel_path = os.path.relpath(directory, self.current_directory)
+                        display_path = rel_path if rel_path != "." else "(루트)"
+                    except ValueError:
+                        # 다른 드라이브인 경우 전체 경로 표시
+                        display_path = directory
+                else:
+                    display_path = directory
                 
-                # 결과 항목 텍스트 구성
-                filename = result['filename']
-                file_type = result['file_type'].upper()
-                file_size = result['file_size_mb']
+                # 🆕 디렉토리 헤더 항상 표시 (경로 정보 제공)
+                dir_header = QListWidgetItem()
+                dir_header_text = f"  📂 {display_path} ({len(dir_results)}개)"
+                dir_header.setText(dir_header_text)
+                dir_header.setData(Qt.ItemDataRole.UserRole, None)
                 
-                # 📄 파일 아이콘과 정보 표시
-                item_text = f"  📄 {filename} ({file_type}, {file_size}MB)"
-                item.setText(item_text)
+                # 디렉토리 헤더 스타일
+                font = dir_header.font()
+                font.setBold(True)
+                dir_header.setFont(font)
+                # 툴팁에 전체 경로 표시
+                dir_header.setToolTip(f"전체 경로: {directory}")
+                self.results_list.addItem(dir_header)
                 
-                # 결과 데이터 저장
-                item.setData(Qt.ItemDataRole.UserRole, result)
-                
-                self.results_list.addItem(item)
+                # 해당 디렉토리의 파일들 표시 (항상 들여쓰기)
+                for result in dir_results:
+                    item = QListWidgetItem()
+                    
+                    # 결과 항목 텍스트 구성
+                    filename = result['filename']
+                    file_type = result['file_type'].upper()
+                    file_size = result['file_size_mb']
+                    
+                    # 📄 파일 아이콘과 정보 표시 (들여쓰기)
+                    item_text = f"    📄 {filename} ({file_type}, {file_size}MB)"
+                    item.setText(item_text)
+                    
+                    # 결과 데이터 저장
+                    item.setData(Qt.ItemDataRole.UserRole, result)
+                    
+                    # 툴팁에 전체 경로 표시
+                    item.setToolTip(f"전체 경로: {result.get('file_path', '')}")
+                    
+                    self.results_list.addItem(item)
     
     def add_file_to_index(self, file_path: str):
         """
