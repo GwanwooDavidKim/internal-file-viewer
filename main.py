@@ -273,12 +273,8 @@ def main():
             sys.exit(1)
         
         # 실행 모드 확인 (GUI 또는 콘솔)
-        if len(sys.argv) > 1 and sys.argv[1] == "--gui":
-            # GUI 모드
-            setup_application(gui_mode=True)
-            launch_gui()
-        else:
-            # 콘솔 모드 (기본)
+        if len(sys.argv) > 1 and sys.argv[1] == "--console":
+            # 콘솔 모드
             setup_application(gui_mode=False)
             auth_manager = AuthenticationManager()
             
@@ -289,6 +285,10 @@ def main():
             else:
                 print("[오류] 로그인에 실패했습니다.")
                 sys.exit(1)
+        else:
+            # GUI 모드 (기본)
+            setup_application(gui_mode=True)
+            launch_gui()
         
     except Exception as e:
         print(f"[오류] 애플리케이션 실행 중 오류가 발생했습니다: {str(e)}", file=sys.stderr)

@@ -29,15 +29,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Internal File Viewer"
+args = "File Viewer (Console Test)"
 
 [[workflows.workflow]]
-name = "Internal File Viewer"
+name = "File Viewer (Console Test)"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python main.py"
+args = "python main.py --console"
 
 [workflows.workflow.metadata]
 outputType = "console"
