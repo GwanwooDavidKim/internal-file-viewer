@@ -475,7 +475,8 @@ class ContentViewer(QWidget):
         # 페이지 네비게이션 설정
         page_count = file_info.get('page_count', 1)
         if page_count > 1:
-            self.page_spin.setMaximum(page_count)
+            self.page_spin.setRange(1, page_count)
+            self.page_spin.setValue(1)  # 첫 번째 페이지로 초기화
             self.page_total_label.setText(f"/ {page_count}")
             self.page_label.show()
             self.page_spin.show()
@@ -800,7 +801,8 @@ class ContentViewer(QWidget):
         if file_info['file_type'] == 'powerpoint':
             slide_count = file_info.get('slide_count', 1)
             if slide_count > 1:
-                self.page_spin.setMaximum(slide_count)
+                self.page_spin.setRange(1, slide_count)
+                self.page_spin.setValue(1)  # 첫 번째 슬라이드로 초기화
                 self.page_total_label.setText(f"/ {slide_count}")
                 self.page_label.setText("슬라이드:")
                 self.page_label.show()
