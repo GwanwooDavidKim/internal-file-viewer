@@ -290,6 +290,14 @@ class MainWindow(QMainWindow):
         sender = self.sender()
         self.file_selected_from_search = (sender == self.search_widget)
         
+        # 검색 결과에서 선택된 경우 매칭된 페이지 정보 전달
+        if self.file_selected_from_search:
+            matching_pages = self.search_widget.get_current_matching_pages()
+            self.content_viewer.set_matching_pages(matching_pages)
+        else:
+            # 파일 브라우저에서 선택된 경우 검색 페이지 초기화
+            self.content_viewer.clear_matching_pages()
+        
         self.status_bar.showMessage(f"파일 로딩 중: {file_path}")
         self.content_viewer.load_file(file_path)
     

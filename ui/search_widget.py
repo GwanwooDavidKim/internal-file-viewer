@@ -58,6 +58,7 @@ class SearchWidget(QWidget):
         self.indexing_worker = None
         self.current_directory = ""
         self.current_selected_file = None  # 현재 선택된 파일 경로
+        self.current_selected_result = None  # 현재 선택된 검색 결과 (matching_pages 포함)
         self.search_mode = "content"  # "content" 또는 "filename"
         
         # 🆕 검색 결과 및 정렬 상태 
@@ -538,10 +539,12 @@ class SearchWidget(QWidget):
             self.open_original_button.setEnabled(False)
             self.open_folder_button.setEnabled(False)
             self.current_selected_file = None
+            self.current_selected_result = None
             return
         
         if result:
             self.current_selected_file = result['file_path']
+            self.current_selected_result = result  # 전체 결과 저장 (matching_pages 포함)
             
             # 버튼들 활성화
             self.open_viewer_button.setEnabled(True)
@@ -857,6 +860,17 @@ class SearchWidget(QWidget):
         # 버튼 다시 활성화 (로딩 완료 후)
         if self.current_selected_file:
             self.open_viewer_button.setEnabled(True)
+    
+    def get_current_matching_pages(self):
+        """
+        현재 선택된 검색 결과의 매칭된 페이지 목록을 반환합니다.
+        
+        Returns:
+            list: 매칭된 페이지 번호 목록
+        """
+        if self.current_selected_result:
+            return self.current_selected_result.get('matching_pages', [])
+        return []
     
     
     def search_by_filename(self, query: str, max_results: int = 100):

@@ -93,6 +93,11 @@ class ContentViewer(QWidget):
         self.current_file_path = ""
         self.current_file_info = {}
         self.load_worker = None
+        
+        # 검색 결과 네비게이션 관련
+        self.matching_pages = []  # 검색어가 매칭된 페이지 번호 목록
+        self.current_search_index = 0  # 현재 보고 있는 검색 결과 인덱스
+        
         self.setup_ui()
     
     def setup_ui(self):
@@ -353,6 +358,29 @@ class ContentViewer(QWidget):
         
         self.page_total_label = QLabel("/ 1")
         control_layout.addWidget(self.page_total_label)
+        
+        control_layout.addStretch()
+        
+        # 검색 결과 네비게이션 (검색 결과 페이지들 간 이동)
+        self.search_nav_label = QLabel("검색 결과:")
+        self.search_nav_label.hide()
+        control_layout.addWidget(self.search_nav_label)
+        
+        self.prev_search_button = QPushButton("< 이전")
+        self.prev_search_button.setFixedWidth(70)
+        self.prev_search_button.clicked.connect(self.go_to_prev_search_result)
+        self.prev_search_button.hide()
+        control_layout.addWidget(self.prev_search_button)
+        
+        self.search_position_label = QLabel("1 / 1")
+        self.search_position_label.hide()
+        control_layout.addWidget(self.search_position_label)
+        
+        self.next_search_button = QPushButton("다음 >")
+        self.next_search_button.setFixedWidth(70)
+        self.next_search_button.clicked.connect(self.go_to_next_search_result)
+        self.next_search_button.hide()
+        control_layout.addWidget(self.next_search_button)
         
         control_layout.addStretch()
         
@@ -986,6 +1014,67 @@ class ContentViewer(QWidget):
         except Exception as e:
             print(f"테이블 업데이트 오류: {e}")
     
+    def set_matching_pages(self, matching_pages: list):
+        """
+        검색 결과 페이지 목록을 설정합니다.
+        
+        Args:
+            matching_pages (list): 검색어가 매칭된 페이지 번호 목록
+        """
+        self.matching_pages = matching_pages if matching_pages else []
+        self.current_search_index = 0
+        self.update_search_nav_ui()
+        
+        # 첫 번째 검색 결과 페이지로 이동
+        if self.matching_pages:
+            self.page_spin.setValue(self.matching_pages[0])
+    
+    def clear_matching_pages(self):
+        """검색 결과 페이지 목록을 초기화합니다."""
+        self.matching_pages = []
+        self.current_search_index = 0
+        self.update_search_nav_ui()
+    
+    def update_search_nav_ui(self):
+        """검색 네비게이션 UI를 업데이트합니다."""
+        if self.matching_pages:
+            # 검색 결과가 있으면 네비게이션 표시
+            self.search_nav_label.show()
+            self.prev_search_button.show()
+            self.search_position_label.show()
+            self.next_search_button.show()
+            
+            # 위치 표시 업데이트
+            total = len(self.matching_pages)
+            current = self.current_search_index + 1
+            self.search_position_label.setText(f"{current} / {total}")
+            
+            # 버튼 활성화/비활성화
+            self.prev_search_button.setEnabled(self.current_search_index > 0)
+            self.next_search_button.setEnabled(self.current_search_index < len(self.matching_pages) - 1)
+        else:
+            # 검색 결과가 없으면 네비게이션 숨김
+            self.search_nav_label.hide()
+            self.prev_search_button.hide()
+            self.search_position_label.hide()
+            self.next_search_button.hide()
+    
+    def go_to_prev_search_result(self):
+        """이전 검색 결과 페이지로 이동합니다."""
+        if self.current_search_index > 0:
+            self.current_search_index -= 1
+            page_num = self.matching_pages[self.current_search_index]
+            self.page_spin.setValue(page_num)
+            self.update_search_nav_ui()
+    
+    def go_to_next_search_result(self):
+        """다음 검색 결과 페이지로 이동합니다."""
+        if self.current_search_index < len(self.matching_pages) - 1:
+            self.current_search_index += 1
+            page_num = self.matching_pages[self.current_search_index]
+            self.page_spin.setValue(page_num)
+            self.update_search_nav_ui()
+    
     def clear(self):
         """뷰어를 초기화합니다."""
         self.current_file_path = ""
@@ -994,3 +1083,4 @@ class ContentViewer(QWidget):
         self.control_frame.hide()
         self.title_label.setText("파일을 선택하세요")
         self.details_label.setText("")
+        self.clear_matching_pages()
