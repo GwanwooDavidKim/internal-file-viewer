@@ -25,11 +25,11 @@ logger = logging.getLogger(__name__)
 try:
     import aspose.slides as slides
     ASPOSE_AVAILABLE = True
-    logger.info("✅ Aspose.Slides 라이브러리 로드 완료 (평가판) - 워터마크 포함")
+    logger.info("[완료] Aspose.Slides 라이브러리 로드 완료 (평가판) - 워터마크 포함")
 except ImportError as e:
     ASPOSE_AVAILABLE = False
     slides = None
-    logger.warning(f"⚠️ Aspose.Slides 라이브러리 없음: {e} - Aspose 방식 사용 불가")
+    logger.warning(f"[경고] Aspose.Slides 라이브러리 없음: {e} - Aspose 방식 사용 불가")
 
 
 class AsposePowerPointConverter:
@@ -60,16 +60,16 @@ class AsposePowerPointConverter:
         self.max_cache_size_mb = 1024  # 1GB
         self.max_cache_age_days = 7
         
-        print("🚀 AsposePowerPointConverter 초기화 (평가판)")
-        print(f"   📁 캐시 폴더: {self.cache_dir}")
+        print("[시작] AsposePowerPointConverter 초기화 (평가판)")
+        print(f"   [폴더] 캐시 폴더: {self.cache_dir}")
         
         if ASPOSE_AVAILABLE:
-            print("   ✅ Aspose.Slides 방식 사용 가능! (평가판 - 워터마크 포함)")
-            print("   ⚡ 사용자 간섭 없는 고성능 변환 준비 완료")
-            print("   🛡️ Microsoft Office 설치 불필요")
-            print("   💧 평가판 - PDF에 워터마크가 포함될 수 있음")
+            print("   [완료] Aspose.Slides 방식 사용 가능! (평가판 - 워터마크 포함)")
+            print("   [변환기] 사용자 간섭 없는 고성능 변환 준비 완료")
+            print("   [안전] Microsoft Office 설치 불필요")
+            print("   [평가판] 평가판 - PDF에 워터마크가 포함될 수 있음")
         else:
-            print("   ❌ Aspose 방식 사용 불가 (라이브러리 없음)")
+            print("   [오류] Aspose 방식 사용 불가 (라이브러리 없음)")
     
     def is_available(self) -> bool:
         """Aspose 변환기 사용 가능 여부 확인"""
@@ -92,7 +92,7 @@ class AsposePowerPointConverter:
             for cache_file in self.cache_dir.glob("*.pdf"):
                 if current_time - cache_file.stat().st_mtime > max_age_seconds:
                     cache_file.unlink()
-                    logger.info(f"🗑️ 오래된 캐시 파일 삭제: {cache_file.name}")
+                    logger.info(f"[삭제] 오래된 캐시 파일 삭제: {cache_file.name}")
                     
         except Exception as e:
             logger.warning(f"캐시 정리 중 오류: {e}")
@@ -108,11 +108,11 @@ class AsposePowerPointConverter:
             Optional[str]: 변환된 PDF 파일 경로 (실패 시 None)
         """
         if not self.is_available():
-            logger.error("❌ Aspose 변환기를 사용할 수 없습니다")
+            logger.error("[오류] Aspose 변환기를 사용할 수 없습니다")
             return None
         
         if not os.path.exists(ppt_file_path):
-            logger.error(f"❌ PowerPoint 파일을 찾을 수 없습니다: {ppt_file_path}")
+            logger.error(f"[오류] PowerPoint 파일을 찾을 수 없습니다: {ppt_file_path}")
             return None
         
         try:
@@ -122,26 +122,26 @@ class AsposePowerPointConverter:
             
             # 캐시된 파일이 있으면 반환
             if cached_pdf.exists() and cached_pdf.stat().st_size > 0:
-                logger.info(f"📋 캐시된 PDF 사용: {os.path.basename(ppt_file_path)}")
+                logger.info(f"[캐시] 캐시된 PDF 사용: {os.path.basename(ppt_file_path)}")
                 return str(cached_pdf)
             
             # 변환 시작
-            logger.info(f"🔄 Aspose.Slides로 PowerPoint → PDF 변환 시작: {os.path.basename(ppt_file_path)}")
+            logger.info(f"[처리중] Aspose.Slides로 PowerPoint → PDF 변환 시작: {os.path.basename(ppt_file_path)}")
             start_time = time.time()
             
             with self._lock:
                 # 프레젠테이션 로드 (사용자 파일에 간섭 없음)
-                logger.info("   📂 프레젠테이션 로드 중...")
+                logger.info("   [폴더] 프레젠테이션 로드 중...")
                 abs_ppt_path = os.path.abspath(ppt_file_path)
                 
                 # slides 모듈이 None이 아님을 확인 (타입 체킹용)
                 if slides is None:
-                    logger.error("❌ slides 모듈이 None입니다")
+                    logger.error("[오류] slides 모듈이 None입니다")
                     return None
                 
                 with slides.Presentation(abs_ppt_path) as presentation:
                     # PDF로 저장
-                    logger.info("   💾 PDF로 변환 중...")
+                    logger.info("   [저장] PDF로 변환 중...")
                     abs_pdf_path = os.path.abspath(str(cached_pdf))
                     
                     # PDF 옵션 설정 (평가판용 - 기본 설정)
@@ -159,20 +159,20 @@ class AsposePowerPointConverter:
                 # 변환 완료 확인
                 if cached_pdf.exists() and cached_pdf.stat().st_size > 0:
                     elapsed = time.time() - start_time
-                    logger.info(f"✅ Aspose.Slides 변환 완료! ({elapsed:.1f}초)")
-                    logger.info(f"   📄 PDF 생성: {os.path.basename(cached_pdf)}")
-                    logger.info("   💧 평가판 - 워터마크가 포함될 수 있습니다")
+                    logger.info(f"[완료] Aspose.Slides 변환 완료! ({elapsed:.1f}초)")
+                    logger.info(f"   [파일] PDF 생성: {os.path.basename(cached_pdf)}")
+                    logger.info("   [평가판] 평가판 - 워터마크가 포함될 수 있습니다")
                     
                     # 오래된 캐시 정리
                     self._cleanup_cache()
                     
                     return str(cached_pdf)
                 else:
-                    logger.error("❌ PDF 파일이 생성되지 않았습니다")
+                    logger.error("[오류] PDF 파일이 생성되지 않았습니다")
                     return None
                     
         except Exception as e:
-            logger.error(f"❌ Aspose 변환 오류: {e}")
+            logger.error(f"[오류] Aspose 변환 오류: {e}")
             # 실패한 캐시 파일 정리
             if 'cached_pdf' in locals() and cached_pdf.exists():
                 try:
@@ -193,11 +193,11 @@ class AsposePowerPointConverter:
             Optional[list]: 생성된 이미지 파일 경로들 (실패 시 None)
         """
         if not self.is_available():
-            logger.error("❌ Aspose 변환기를 사용할 수 없습니다")
+            logger.error("[오류] Aspose 변환기를 사용할 수 없습니다")
             return None
         
         if slides is None:
-            logger.error("❌ slides 모듈이 None입니다")
+            logger.error("[오류] slides 모듈이 None입니다")
             return None
         
         try:
@@ -227,7 +227,7 @@ class AsposePowerPointConverter:
                     return image_paths
                     
         except Exception as e:
-            logger.error(f"❌ 이미지 변환 오류: {e}")
+            logger.error(f"[오류] 이미지 변환 오류: {e}")
             return None
     
     def get_slide_count(self, ppt_file_path: str) -> int:
@@ -244,7 +244,7 @@ class AsposePowerPointConverter:
             return 0
         
         if slides is None:
-            logger.error("❌ slides 모듈이 None입니다")
+            logger.error("[오류] slides 모듈이 None입니다")
             return 0
         
         try:
@@ -269,7 +269,7 @@ class AsposePowerPointConverter:
             return ""
         
         if slides is None:
-            logger.error("❌ slides 모듈이 None입니다")
+            logger.error("[오류] slides 모듈이 None입니다")
             return ""
         
         try:

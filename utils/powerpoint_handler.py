@@ -59,31 +59,31 @@ class PowerPointHandler:
             self.active_converter = self.aspose_converter
             self.converter_type = "Aspose.Slides (평가판)"
             self.supported_extensions = ['.ppt', '.pptx']  # Aspose는 모든 PowerPoint 형식 지원
-            print("   🚀 Aspose.Slides 방식 사용 (평가판 - 워터마크 허용)")
-            print("   📄 지원 형식: .ppt, .pptx")
-            print("   🛡️ Microsoft Office 설치 불필요")
-            print("   💧 워터마크 허용 - 사용자 간섭 없음")
+            print("   [시작] Aspose.Slides 방식 사용 (평가판 - 워터마크 허용)")
+            print("   [파일] 지원 형식: .ppt, .pptx")
+            print("   [안전] Microsoft Office 설치 불필요")
+            print("   [평가판] 워터마크 허용 - 사용자 간섭 없음")
         else:
             self.active_converter = self.pdf_converter
             self.converter_type = "LibreOffice" 
             self.supported_extensions = ['.pptx']  # LibreOffice는 .pptx만 안정적
-            print("   📋 LibreOffice 방식 사용 (호환성)")
-            print("   📄 지원 형식: .pptx")
+            print("   [캐시] LibreOffice 방식 사용 (호환성)")
+            print("   [파일] 지원 형식: .pptx")
         
         # 현재 연결된 파일 경로 (호환성을 위해)
         self.current_file_path = None
         
-        print("🔄 PowerPointHandler 초기화 - 안전한 PDF 변환 방식 사용")
-        print("   ✅ 사용자 PowerPoint 작업에 영향 없음")
-        print("   ✅ 원본 파일 락 없음") 
-        print("   ✅ '원본 열기' 기능 완벽 작동")
-        print(f"   ⚡ 활성 변환기: {self.converter_type}")
+        print("[처리중] PowerPointHandler 초기화 - 안전한 PDF 변환 방식 사용")
+        print("   [완료] 사용자 PowerPoint 작업에 영향 없음")
+        print("   [완료] 원본 파일 락 없음") 
+        print("   [완료] '원본 열기' 기능 완벽 작동")
+        print(f"   [변환기] 활성 변환기: {self.converter_type}")
         
         # 변환기별 특징 안내
         if self.converter_type.startswith("Aspose"):
-            print("   🎯 Aspose 장점: 사용자 간섭 없음 + LibreOffice보다 빠름 (워터마크 포함)")
+            print("   [작업] Aspose 장점: 사용자 간섭 없음 + LibreOffice보다 빠름 (워터마크 포함)")
         else:
-            print("   💰 무료 솔루션 사용")
+            print("   [무료] 무료 솔루션 사용")
     
     def open_persistent_connection(self, file_path: str) -> bool:
         """
@@ -96,8 +96,8 @@ class PowerPointHandler:
             bool: 항상 True (PDF 변환 방식은 항상 사용 가능)
         """
         self.current_file_path = file_path  # 현재 파일 경로 저장 (render_slide_fast용)
-        logger.info(f"🔄 PPT → PDF 방식으로 연결: {os.path.basename(file_path)}")
-        logger.info("   ✅ 지속 연결 불필요 - 즉시 렌더링 가능")
+        logger.info(f"[처리중] PPT → PDF 방식으로 연결: {os.path.basename(file_path)}")
+        logger.info("   [완료] 지속 연결 불필요 - 즉시 렌더링 가능")
         return True
     
     def close_persistent_connection(self):
@@ -105,8 +105,8 @@ class PowerPointHandler:
         호환성을 위한 메소드 - PDF 변환 방식에서는 정리할 연결이 없음
         """
         self.current_file_path = None  # 현재 파일 경로 초기화
-        logger.info("🔄 PPT → PDF 방식 정리 완료")
-        logger.info("   ✅ 사용자 PowerPoint에 영향 없이 안전하게 종료")
+        logger.info("[처리중] PPT → PDF 방식 정리 완료")
+        logger.info("   [완료] 사용자 PowerPoint에 영향 없이 안전하게 종료")
     
     def is_connected(self) -> bool:
         """
@@ -130,10 +130,10 @@ class PowerPointHandler:
             Optional[Image.Image]: 렌더링된 이미지
         """
         if not self.current_file_path:
-            logger.error("❌ render_slide_fast 호출 전에 open_persistent_connection이 필요합니다")
+            logger.error("[오류] render_slide_fast 호출 전에 open_persistent_connection이 필요합니다")
             return None
             
-        logger.info(f"🚀 빠른 렌더링 (PDF 방식): 슬라이드 {slide_number + 1}")
+        logger.info(f"[시작] 빠른 렌더링 (PDF 방식): 슬라이드 {slide_number + 1}")
         # PDF 변환 방식은 항상 빠르므로 기본 렌더링 메소드와 동일
         return self.render_slide_to_image(self.current_file_path, slide_number, width, height)
     
@@ -202,17 +202,17 @@ class PowerPointHandler:
             return None
         
         try:
-            logger.info(f"🔄 PPT → PDF → 이미지 렌더링 시작: {os.path.basename(file_path)}, 슬라이드 {slide_number + 1}")
+            logger.info(f"[처리중] PPT → PDF → 이미지 렌더링 시작: {os.path.basename(file_path)}, 슬라이드 {slide_number + 1}")
             
             # 1단계: PPT를 PDF로 변환 (캐시 활용) - 활성 변환기 사용
             start_time = time.time()
             pdf_path = self.active_converter.convert_to_pdf(file_path)
             conversion_time = time.time() - start_time
             if not pdf_path:
-                logger.error("❌ PPT → PDF 변환 실패")
+                logger.error("[오류] PPT → PDF 변환 실패")
                 return None
             
-            logger.info(f"✅ PDF 변환 완료: {os.path.basename(pdf_path)}")
+            logger.info(f"[완료] PDF 변환 완료: {os.path.basename(pdf_path)}")
             
             # 2단계: PDF에서 해당 페이지를 이미지로 렌더링
             image = self.pdf_handler.render_page_to_image(
@@ -222,14 +222,14 @@ class PowerPointHandler:
             )
             
             if image:
-                logger.info(f"✅ 슬라이드 {slide_number + 1} 렌더링 완료! ({self.converter_type} 변환: {conversion_time:.1f}초)")
+                logger.info(f"[완료] 슬라이드 {slide_number + 1} 렌더링 완료! ({self.converter_type} 변환: {conversion_time:.1f}초)")
                 return image
             else:
-                logger.error(f"❌ PDF 페이지 {slide_number} 렌더링 실패")
+                logger.error(f"[오류] PDF 페이지 {slide_number} 렌더링 실패")
                 return None
                 
         except Exception as e:
-            logger.error(f"❌ 슬라이드 렌더링 오류: {e}")
+            logger.error(f"[오류] 슬라이드 렌더링 오류: {e}")
             return None
     
     def extract_text_from_slide(self, file_path: str, slide_number: int) -> Dict[str, Any]:
@@ -320,7 +320,7 @@ class PowerPointHandler:
         # .ppt 파일은 python-pptx로 직접 읽을 수 없으므로 PDF에서 텍스트 추출
         if file_path.lower().endswith('.ppt'):
             try:
-                logger.info(f"🔄 .ppt 파일 텍스트 추출: PDF 변환 방식 사용")
+                logger.info(f"[처리중] .ppt 파일 텍스트 추출: PDF 변환 방식 사용")
                 pdf_path = self.active_converter.convert_to_pdf(file_path)
                 if pdf_path:
                     return self.pdf_handler.extract_text_by_pages(pdf_path, max_pages=max_slides)
@@ -523,7 +523,7 @@ class PowerPointHandler:
             Dict[str, Any]: 프레젠테이션 정보
         """
         try:
-            logger.info(f"🔄 .ppt 파일 정보 추출: PDF 변환 방식 사용")
+            logger.info(f"[처리중] .ppt 파일 정보 추출: PDF 변환 방식 사용")
             
             # 기본 파일 정보
             file_size = os.path.getsize(file_path)

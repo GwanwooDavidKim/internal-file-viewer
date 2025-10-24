@@ -131,7 +131,7 @@ class ContentViewer(QWidget):
         buttons_layout = QHBoxLayout()
         
         # 폴더 열기 버튼
-        self.open_folder_button = QPushButton("📁 폴더 열기")
+        self.open_folder_button = QPushButton("[폴더] 폴더 열기")
         self.open_folder_button.setFont(QFont(config.UI_FONTS["font_family"], 10))
         self.open_folder_button.setFixedSize(100, 35)
         self.open_folder_button.setStyleSheet("""
@@ -159,7 +159,7 @@ class ContentViewer(QWidget):
         buttons_layout.addWidget(self.open_folder_button)
         
         # 원본 열기 버튼
-        self.open_file_button = QPushButton("📂 원본 열기")
+        self.open_file_button = QPushButton("[폴더] 원본 열기")
         self.open_file_button.setFont(QFont(config.UI_FONTS["font_family"], 10))
         self.open_file_button.setFixedSize(100, 35)
         self.open_file_button.setStyleSheet("""
@@ -198,7 +198,7 @@ class ContentViewer(QWidget):
         self.content_stack = QStackedWidget()
         
         # 1. 빈 상태 페이지
-        self.empty_page = QLabel("📄\\n\\n파일을 선택하면 여기에 미리보기가 표시됩니다.")
+        self.empty_page = QLabel("[파일]\\n\\n파일을 선택하면 여기에 미리보기가 표시됩니다.")
         self.empty_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_page.setStyleSheet(f"""
             QLabel {{
@@ -218,7 +218,7 @@ class ContentViewer(QWidget):
         loading_container.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # 로딩 아이콘과 메시지
-        self.loading_icon = QLabel("🔄")
+        self.loading_icon = QLabel("[처리중]")
         self.loading_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.loading_icon.setStyleSheet(f"""
             QLabel {{
@@ -312,7 +312,7 @@ class ContentViewer(QWidget):
         self.original_label.setStyleSheet("background-color: white;")
         self.original_tab.setWidget(self.original_label)
         self.original_tab.setWidgetResizable(True)
-        self.document_viewer.addTab(self.original_tab, "📄 원본")
+        self.document_viewer.addTab(self.original_tab, "[파일] 원본")
         
         # 텍스트 탭
         self.doc_text_viewer = QTextEdit()
@@ -326,11 +326,11 @@ class ContentViewer(QWidget):
                 line-height: 1.4;
             }}
         """)
-        self.document_viewer.addTab(self.doc_text_viewer, "📝 텍스트")
+        self.document_viewer.addTab(self.doc_text_viewer, "[텍스트] 텍스트")
         self.content_stack.addWidget(self.document_viewer)
         
         # 7. 오류 페이지
-        self.error_page = QLabel("❌\\n\\n파일을 로딩할 수 없습니다.")
+        self.error_page = QLabel("[오류]\\n\\n파일을 로딩할 수 없습니다.")
         self.error_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.error_page.setStyleSheet(f"""
             QLabel {{
@@ -420,7 +420,7 @@ class ContentViewer(QWidget):
         # 로딩 페이지 표시 (개선된 로딩 메시지)
         filename = os.path.basename(file_path)
         self.loading_text.setText("파일을 로딩 중입니다...")
-        self.loading_file_name.setText(f"📄 {filename}")
+        self.loading_file_name.setText(f"[파일] {filename}")
         self.content_stack.setCurrentWidget(self.loading_page)
         self.control_frame.hide()
         # 로딩 시작 시 버튼들 숨김
@@ -443,7 +443,7 @@ class ContentViewer(QWidget):
         self.current_file_info = file_info
         
         # 파일 정보 표시
-        self.title_label.setText(f"📄 {file_info['filename']}")
+        self.title_label.setText(f"[파일] {file_info['filename']}")
         
         details = f"크기: {file_info['file_size_mb']} MB | 형식: {file_info['file_type'].upper()}"
         if 'page_count' in file_info:
@@ -556,17 +556,17 @@ class ContentViewer(QWidget):
             
             # 로딩 메시지 표시
             self.original_label.setText(f"""
-🎯 PowerPoint 슬라이드 렌더링 중...
+[작업] PowerPoint 슬라이드 렌더링 중...
 
-📄 파일명: {file_info['filename']}
-📊 슬라이드 수: {slide_count}개
+[파일] 파일명: {file_info['filename']}
+[정렬] 슬라이드 수: {slide_count}개
 💾 크기: {file_info['file_size_mb']} MB
 
 ⚡ win32com을 사용한 고속 렌더링으로 곧 표시됩니다!
             """)
             
             # PowerPoint 지속 연결 시작 (사용자 제안 방식!)
-            print(f"🚀 PowerPoint 파일 감지! 지속 연결 시작: {self.current_file_path}")
+            print(f"[시작] PowerPoint 파일 감지! 지속 연결 시작: {self.current_file_path}")
             ppt_handler = self.file_manager.handlers['powerpoint']
             
             if ppt_handler.open_persistent_connection(self.current_file_path):
@@ -576,12 +576,12 @@ class ContentViewer(QWidget):
                 current_text = self.original_label.text()
                 updated_text = current_text.replace(
                     "⚡ win32com을 사용한 고속 렌더링으로 곧 표시됩니다!",
-                    "✅ PowerPoint 연결 완료! 슬라이드 즉시 렌더링 준비됨"
+                    "[성공] PowerPoint 연결 완료! 슬라이드 즉시 렌더링 준비됨"
                 )
                 self.original_label.setText(updated_text)
             else:
                 # 연결 실패 시 기존 방식으로 폴백
-                print("⚠️ PowerPoint 지속 연결 실패 - 기존 방식으로 폴백")
+                print("[경고] PowerPoint 지속 연결 실패 - 기존 방식으로 폴백")
                 self.original_label.setText("PowerPoint 연결 실패 - 개별 렌더링으로 전환됩니다")
                 # 첫 번째 슬라이드 폴백 렌더링
                 self.render_individual_slide_fallback(0)
@@ -606,7 +606,7 @@ class ContentViewer(QWidget):
         else:
             # Word 문서의 경우
             self.original_label.setText(f"""
-📄 {file_type.upper()} 문서
+[파일] {file_type.upper()} 문서
 
 파일명: {file_info['filename']}
 크기: {file_info['file_size_mb']} MB
@@ -642,7 +642,7 @@ class ContentViewer(QWidget):
             image = ppt_handler.render_slide_fast(slide_num, width=800, height=600)
             
             if image:
-                print(f"✅ 즉시 렌더링 성공! 이미지 크기: {image.size}")
+                print(f"[성공] 즉시 렌더링 성공! 이미지 크기: {image.size}")
                 # PIL Image를 QPixmap으로 변환
                 import io
                 buffer = io.BytesIO()
@@ -659,28 +659,28 @@ class ContentViewer(QWidget):
                         pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
                     
                     self.original_label.setPixmap(pixmap)
-                    print("🖼️ 즉시 렌더링 이미지 표시 완료!")
+                    print("[이미지] 즉시 렌더링 이미지 표시 완료!")
                 else:
-                    print("❌ QPixmap 변환 실패")
+                    print("[오류] QPixmap 변환 실패")
                     self.original_label.setText("이미지 변환 실패")
             else:
-                print("❌ 즉시 렌더링 실패 - 개별 렌더링으로 폴백")
+                print("[오류] 즉시 렌더링 실패 - 개별 렌더링으로 폴백")
                 # 기존 방식으로 폴백
                 self.render_individual_slide_fallback(slide_num)
                 
         except Exception as e:
-            print(f"❌ 즉시 렌더링 예외: {e}")
+            print(f"[오류] 즉시 렌더링 예외: {e}")
             self.render_individual_slide_fallback(slide_num)
     
     def render_individual_slide_fallback(self, slide_num: int):
         """지속 연결 실패 시 기존 방식으로 폴백 렌더링"""
         try:
-            print(f"🔄 폴백 렌더링: 슬라이드 {slide_num}")
+            print(f"[처리] 폴백 렌더링: 슬라이드 {slide_num}")
             ppt_handler = self.file_manager.handlers['powerpoint']
             image = ppt_handler.render_slide_to_image(self.current_file_path, slide_num, width=800, height=600)
             
             if image:
-                print(f"✅ 폴백 렌더링 성공! 이미지 크기: {image.size}")
+                print(f"[성공] 폴백 렌더링 성공! 이미지 크기: {image.size}")
                 # PIL Image를 QPixmap으로 변환
                 import io
                 buffer = io.BytesIO()
@@ -697,16 +697,16 @@ class ContentViewer(QWidget):
                         pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
                     
                     self.original_label.setPixmap(pixmap)
-                    print("🖼️ 폴백 이미지 표시 완료!")
+                    print("[이미지] 폴백 이미지 표시 완료!")
                 else:
-                    print("❌ QPixmap 변환 실패")
+                    print("[오류] QPixmap 변환 실패")
                     self.original_label.setText("이미지 변환 실패")
             else:
-                print("❌ 폴백 렌더링도 실패")
+                print("[오류] 폴백 렌더링도 실패")
                 self.original_label.setText("슬라이드 렌더링 실패")
                 
         except Exception as e:
-            print(f"❌ 폴백 렌더링 예외: {e}")
+            print(f"[오류] 폴백 렌더링 예외: {e}")
             self.original_label.setText(f"슬라이드 렌더링 오류: {str(e)}")
     
     def cleanup_powerpoint_connection(self):
@@ -846,7 +846,7 @@ class ContentViewer(QWidget):
     
     def show_error(self, message: str):
         """오류 메시지를 표시합니다."""
-        self.error_page.setText(f"❌\\n\\n{message}")
+        self.error_page.setText(f"[오류]\\n\\n{message}")
         self.content_stack.setCurrentWidget(self.error_page)
         self.control_frame.hide()
         
@@ -878,14 +878,14 @@ class ContentViewer(QWidget):
         
         elif file_type == 'powerpoint':
             # PowerPoint 슬라이드 변경 시 즉시 렌더링 (지속 연결 방식)
-            print(f"🔄 PowerPoint 슬라이드 변경: {page_num} (즉시 렌더링)")
+            print(f"[처리] PowerPoint 슬라이드 변경: {page_num} (즉시 렌더링)")
             
             # 연결 상태 확인 후 적절한 렌더링 방식 선택
             ppt_handler = self.file_manager.handlers['powerpoint']
             if ppt_handler.is_connected():
                 self.render_slide_instantly(page_num - 1)  # 0부터 시작
             else:
-                print("⚠️ PowerPoint 연결 끊어짐 - 폴백 렌더링")
+                print("[경고] PowerPoint 연결 끊어짐 - 폴백 렌더링")
                 self.render_individual_slide_fallback(page_num - 1)
                 
             self.load_powerpoint_slide_text(page_num)
@@ -911,12 +911,12 @@ class ContentViewer(QWidget):
                 subprocess.call(["xdg-open", self.current_file_path])
                 
         except Exception as e:
-            print(f"❌ 파일 열기 실패: {e}")
+            print(f"[오류] 파일 열기 실패: {e}")
     
     def open_folder_location(self):
         """선택된 파일이 있는 폴더를 엽니다."""
         if not self.current_file_path or not os.path.exists(self.current_file_path):
-            print(f"❌ 폴더 열기 실패: 파일 경로가 없거나 존재하지 않습니다. {self.current_file_path}")
+            print(f"[오류] 폴더 열기 실패: 파일 경로가 없거나 존재하지 않습니다. {self.current_file_path}")
             return
         
         try:
@@ -927,27 +927,27 @@ class ContentViewer(QWidget):
             file_path = os.path.abspath(self.current_file_path)
             folder_path = os.path.dirname(file_path)
             
-            print(f"📁 파일 경로: {file_path}")
-            print(f"📂 폴더 경로: {folder_path}")
+            print(f"[폴더] 파일 경로: {file_path}")
+            print(f"[폴더] 폴더 경로: {folder_path}")
             
             if sys.platform == "win32":
                 # Windows에서는 explorer의 /select 옵션을 사용하여 파일을 선택한 상태로 폴더 열기
                 file_path_normalized = os.path.normpath(file_path)
                 subprocess.run(['explorer', '/select,', file_path_normalized])
-                print(f"✅ Windows 폴더 열기 성공: {folder_path}")
+                print(f"[성공] Windows 폴더 열기 성공: {folder_path}")
             elif sys.platform == "darwin":
                 # macOS에서는 open 명령 사용
                 subprocess.call(["open", folder_path])
-                print(f"✅ macOS 폴더 열기 성공: {folder_path}")
+                print(f"[성공] macOS 폴더 열기 성공: {folder_path}")
             else:
                 # Linux에서는 xdg-open 사용
                 subprocess.call(["xdg-open", folder_path])
-                print(f"✅ Linux 폴더 열기 성공: {folder_path}")
+                print(f"[성공] Linux 폴더 열기 성공: {folder_path}")
             
         except Exception as e:
-            print(f"❌ 폴더 열기 실패: {e}")
-            print(f"❌ 파일 경로: {self.current_file_path}")
-            print(f"❌ 폴더 경로: {os.path.dirname(self.current_file_path)}")
+            print(f"[오류] 폴더 열기 실패: {e}")
+            print(f"[오류] 파일 경로: {self.current_file_path}")
+            print(f"[오류] 폴더 경로: {os.path.dirname(self.current_file_path)}")
     
     def load_powerpoint_slide_text(self, slide_num: int):
         """PowerPoint 슬라이드의 텍스트를 로드합니다."""

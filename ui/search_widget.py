@@ -63,7 +63,7 @@ class SearchWidget(QWidget):
         
         # 🆕 검색 결과 및 정렬 상태 
         self.current_search_results = []
-        self.current_sort_mode = "📊 관련성 순 (기본)"
+        self.current_sort_mode = "[정렬] 관련성 순 (기본)"
         
         self.setup_ui()
         
@@ -82,7 +82,7 @@ class SearchWidget(QWidget):
         # 🆕 파일명 검색 입력
         filename_search_layout = QHBoxLayout()
         
-        filename_label = QLabel("📝 파일명:")
+        filename_label = QLabel("[텍스트] 파일명:")
         filename_label.setMinimumWidth(60)
         filename_search_layout.addWidget(filename_label)
         
@@ -96,7 +96,7 @@ class SearchWidget(QWidget):
         # 🆕 내용 검색 입력
         content_search_layout = QHBoxLayout()
         
-        content_label = QLabel("📄 내용:")
+        content_label = QLabel("[파일] 내용:")
         content_label.setMinimumWidth(60)
         content_search_layout.addWidget(content_label)
         
@@ -128,7 +128,7 @@ class SearchWidget(QWidget):
         # 인덱싱 컨트롤
         indexing_layout = QHBoxLayout()
         
-        self.index_button = QPushButton("📂 폴더 인덱싱")
+        self.index_button = QPushButton("[경로] 폴더 인덱싱")
         self.index_button.clicked.connect(self.start_indexing)
         indexing_layout.addWidget(self.index_button)
         
@@ -164,11 +164,11 @@ class SearchWidget(QWidget):
         
         self.sort_combo = QComboBox()
         self.sort_combo.addItems([
-            "📊 관련성 순 (기본)",
-            "📁 파일명 (오름차순)", 
-            "📁 파일명 (내림차순)",
-            "📅 최신 변경일 순",
-            "📅 오래된 변경일 순",
+            "[정렬] 관련성 순 (기본)",
+            "[폴더] 파일명 (오름차순)", 
+            "[폴더] 파일명 (내림차순)",
+            "[날짜] 최신 변경일 순",
+            "[날짜] 오래된 변경일 순",
             "📏 파일크기 (큰순)",
             "📏 파일크기 (작은순)"
         ])
@@ -247,7 +247,7 @@ class SearchWidget(QWidget):
         actions_layout.addWidget(self.open_viewer_button)
         
         # 폴더 열기 버튼
-        self.open_folder_button = QPushButton("📁 폴더 열기")
+        self.open_folder_button = QPushButton("[폴더] 폴더 열기")
         self.open_folder_button.setFixedSize(100, 35)
         self.open_folder_button.setStyleSheet("""
             QPushButton {
@@ -274,7 +274,7 @@ class SearchWidget(QWidget):
         actions_layout.addWidget(self.open_folder_button)
         
         # 원본 열기 버튼
-        self.open_original_button = QPushButton("📂 원본 열기")
+        self.open_original_button = QPushButton("[경로] 원본 열기")
         self.open_original_button.setFixedSize(100, 35)
         self.open_original_button.setStyleSheet("""
             QPushButton {
@@ -376,7 +376,7 @@ class SearchWidget(QWidget):
             directory_path (str): 디렉토리 경로
         """
         self.current_directory = directory_path
-        self.index_button.setText(f"📂 '{os.path.basename(directory_path)}' 인덱싱")
+        self.index_button.setText(f"[경로] '{os.path.basename(directory_path)}' 인덱싱")
         self.index_button.setEnabled(True)
     
     def start_indexing(self):
@@ -476,7 +476,7 @@ class SearchWidget(QWidget):
             # 파일 내용 검색 - 인덱싱 완료 체크
             if not self.indexer or len(self.indexer.indexed_paths) == 0:
                 QMessageBox.warning(self, "인덱싱 필요", 
-                                   "파일 내용 검색을 위해서는 먼저 인덱싱을 완료해야 합니다.\n\n'📂 폴더 인덱싱' 버튼을 클릭하여 인덱싱을 시작하세요.")
+                                   "파일 내용 검색을 위해서는 먼저 인덱싱을 완료해야 합니다.\n\n'[경로] 폴더 인덱싱' 버튼을 클릭하여 인덱싱을 시작하세요.")
                 # 조회중 상태 제거
                 self.results_list.clear()
                 self.results_label.setText("검색 결과")
@@ -532,7 +532,7 @@ class SearchWidget(QWidget):
         """검색 결과 선택 시 호출됩니다."""
         result = item.data(Qt.ItemDataRole.UserRole)
         
-        # 🗂️ 헤더 항목이나 선택 불가 항목은 무시
+        # [항목] 헤더 항목이나 선택 불가 항목은 무시
         if result is None:
             # 버튼들 비활성화 (헤더 선택 시)
             self.open_viewer_button.setEnabled(False)
@@ -649,10 +649,10 @@ class SearchWidget(QWidget):
             self.results_label.setText(f"검색 결과 - '{query}'에 대한 결과 없음")
             return
         
-        # 🔄 정렬 수행
+        # [로딩] 정렬 수행
         sorted_results = self._sort_results(self.current_search_results)
         
-        # 🗂️ 확장자별 그룹핑
+        # [항목] 확장자별 그룹핑
         grouped_results = self._group_by_extension(sorted_results)
         
         total_count = len(sorted_results)
@@ -663,7 +663,7 @@ class SearchWidget(QWidget):
             # 확장자 헤더 추가
             if len(grouped_results) > 1:  # 여러 확장자가 있을 때만 헤더 표시
                 header_item = QListWidgetItem()
-                header_text = f"📁 {ext.upper()} 파일 ({len(ext_results)}개)"
+                header_text = f"[폴더] {ext.upper()} 파일 ({len(ext_results)}개)"
                 header_item.setText(header_text)
                 header_item.setData(Qt.ItemDataRole.UserRole, None)  # 헤더는 선택 불가
                 
@@ -692,7 +692,7 @@ class SearchWidget(QWidget):
                 
                 # 🆕 디렉토리 헤더 항상 표시 (경로 정보 제공)
                 dir_header = QListWidgetItem()
-                dir_header_text = f"  📂 {display_path} ({len(dir_results)}개)"
+                dir_header_text = f"  [경로] {display_path} ({len(dir_results)}개)"
                 dir_header.setText(dir_header_text)
                 dir_header.setData(Qt.ItemDataRole.UserRole, None)
                 
@@ -785,15 +785,15 @@ class SearchWidget(QWidget):
                 # Linux에서는 xdg-open 사용
                 subprocess.call(["xdg-open", self.current_selected_file])
                 
-            print(f"✅ 원본 파일 열기: {self.current_selected_file}")
+            print(f"[성공] 원본 파일 열기: {self.current_selected_file}")
             
         except Exception as e:
-            print(f"❌ 원본 파일 열기 실패: {e}")
+            print(f"[오류] 원본 파일 열기 실패: {e}")
     
     def open_folder_location(self):
         """선택된 파일이 있는 폴더를 엽니다."""
         if not self.current_selected_file or not os.path.exists(self.current_selected_file):
-            print(f"❌ 폴더 열기 실패: 파일 경로가 없거나 존재하지 않습니다. {self.current_selected_file}")
+            print(f"[오류] 폴더 열기 실패: 파일 경로가 없거나 존재하지 않습니다. {self.current_selected_file}")
             return
         
         try:
@@ -804,27 +804,27 @@ class SearchWidget(QWidget):
             file_path = os.path.abspath(self.current_selected_file)
             folder_path = os.path.dirname(file_path)
             
-            print(f"📁 파일 경로: {file_path}")
-            print(f"📂 폴더 경로: {folder_path}")
+            print(f"[폴더] 파일 경로: {file_path}")
+            print(f"[경로] 폴더 경로: {folder_path}")
             
             if sys.platform == "win32":
                 # Windows에서는 explorer의 /select 옵션을 사용하여 파일을 선택한 상태로 폴더 열기
                 file_path_normalized = os.path.normpath(file_path)
                 subprocess.run(['explorer', '/select,', file_path_normalized])
-                print(f"✅ Windows 폴더 열기 성공: {folder_path}")
+                print(f"[성공] Windows 폴더 열기 성공: {folder_path}")
             elif sys.platform == "darwin":
                 # macOS에서는 open 명령 사용
                 subprocess.call(["open", folder_path])
-                print(f"✅ macOS 폴더 열기 성공: {folder_path}")
+                print(f"[성공] macOS 폴더 열기 성공: {folder_path}")
             else:
                 # Linux에서는 xdg-open 사용
                 subprocess.call(["xdg-open", folder_path])
-                print(f"✅ Linux 폴더 열기 성공: {folder_path}")
+                print(f"[성공] Linux 폴더 열기 성공: {folder_path}")
             
         except Exception as e:
-            print(f"❌ 폴더 열기 실패: {e}")
-            print(f"❌ 파일 경로: {self.current_selected_file}")
-            print(f"❌ 폴더 경로: {os.path.dirname(self.current_selected_file)}")
+            print(f"[오류] 폴더 열기 실패: {e}")
+            print(f"[오류] 파일 경로: {self.current_selected_file}")
+            print(f"[오류] 폴더 경로: {os.path.dirname(self.current_selected_file)}")
     
     def open_in_viewer(self):
         """선택된 파일을 파일 뷰어에서 엽니다."""
@@ -845,7 +845,7 @@ class SearchWidget(QWidget):
         self.loading_dialog.setAutoReset(False)
         self.loading_dialog.show()
         
-        print(f"🔄 파일 뷰어에서 열기: {self.current_selected_file}")
+        print(f"[로딩] 파일 뷰어에서 열기: {self.current_selected_file}")
         
         # 파일 선택 신호 발생
         self.file_selected.emit(self.current_selected_file)
@@ -855,7 +855,7 @@ class SearchWidget(QWidget):
         if hasattr(self, 'loading_dialog') and self.loading_dialog:
             self.loading_dialog.close()
             self.loading_dialog = None
-            print("✅ 파일 로딩 완료 - 알림창 닫음")
+            print("[성공] 파일 로딩 완료 - 알림창 닫음")
         
         # 버튼 다시 활성화 (로딩 완료 후)
         if self.current_selected_file:
@@ -923,7 +923,7 @@ class SearchWidget(QWidget):
                     break
                     
         except Exception as e:
-            print(f"❌ 파일명 검색 중 오류: {e}")
+            print(f"[오류] 파일명 검색 중 오류: {e}")
         
         # 관련성 점수로 정렬 (파일명 일치도)
         results.sort(key=lambda x: x['relevance_score'], reverse=True)

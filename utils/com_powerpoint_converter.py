@@ -6,11 +6,11 @@ Microsoft Office COM 객체를 직접 사용하여 고품질, 고성능 PPT → 
 LibreOffice 대비 2-3배 빠른 성능과 완벽한 변환 품질을 보장합니다.
 
 핵심 장점:
-- 🚀 네이티브 Office 성능 (2-3배 빠름)
-- 🎯 완벽한 변환 품질 (100% 호환성)
-- 💰 추가 소프트웨어 설치 불필요 (Office 있으면 OK)
-- ⚡ 스마트 캐시 시스템
-- 🛡️ 사용자 작업 완전 분리 (백그라운드 실행)
+- [시작] 네이티브 Office 성능 (2-3배 빠름)
+- [작업] 완벽한 변환 품질 (100% 호환성)
+- [무료] 추가 소프트웨어 설치 불필요 (Office 있으면 OK)
+- [변환기] 스마트 캐시 시스템
+- [안전] 사용자 작업 완전 분리 (백그라운드 실행)
 """
 
 import os
@@ -30,10 +30,10 @@ logger = logging.getLogger(__name__)
 try:
     import comtypes.client
     COM_AVAILABLE = True
-    logger.info("✅ comtypes 라이브러리 로드 완료 - COM 방식 사용 가능")
+    logger.info("[완료] comtypes 라이브러리 로드 완료 - COM 방식 사용 가능")
 except ImportError as e:
     COM_AVAILABLE = False
-    logger.warning(f"⚠️ comtypes 라이브러리 없음: {e} - COM 방식 사용 불가")
+    logger.warning(f"[경고] comtypes 라이브러리 없음: {e} - COM 방식 사용 불가")
 
 
 class ComPowerPointConverter:
@@ -67,13 +67,13 @@ class ComPowerPointConverter:
         # 스레드 락 (COM 객체는 스레드 안전하지 않음)
         self._lock = threading.Lock()
         
-        print(f"🚀 ComPowerPointConverter 초기화")
-        print(f"   📁 캐시 폴더: {self.cache_dir}")
+        print(f"[시작] ComPowerPointConverter 초기화")
+        print(f"   [폴더] 캐시 폴더: {self.cache_dir}")
         if self.is_available():
-            print("   ✅ Microsoft Office COM 방식 사용 가능!")
-            print("   ⚡ 고성능 네이티브 변환 준비 완료")
+            print("   [완료] Microsoft Office COM 방식 사용 가능!")
+            print("   [변환기] 고성능 네이티브 변환 준비 완료")
         else:
-            print("   ❌ COM 방식 사용 불가 (Office 또는 comtypes 없음)")
+            print("   [오류] COM 방식 사용 불가 (Office 또는 comtypes 없음)")
         
         logger.info(f"COM PowerPoint Converter 초기화: 사용 가능={self.is_available()}")
     
@@ -90,14 +90,14 @@ class ComPowerPointConverter:
                     except:
                         pass  # Quit 실패해도 OK (이미 종료되었거나 기타 이유)
                     
-                    logger.info("✅ Microsoft Office PowerPoint 확인 완료")
+                    logger.info("[완료] Microsoft Office PowerPoint 확인 완료")
                     return True
                 else:
-                    logger.warning("⚠️ PowerPoint 객체 생성 실패")
+                    logger.warning("[경고] PowerPoint 객체 생성 실패")
                     return False
                     
         except Exception as e:
-            logger.warning(f"⚠️ Office 설치 확인 실패: {e}")
+            logger.warning(f"[경고] Office 설치 확인 실패: {e}")
             return False
     
     def is_available(self) -> bool:
@@ -142,14 +142,14 @@ class ComPowerPointConverter:
                     
                     cache_file.unlink()
                     total_size -= size
-                    logger.info(f"🗑️ 캐시 파일 삭제 (크기 제한): {cache_file.name}")
+                    logger.info(f"[삭제] 캐시 파일 삭제 (크기 제한): {cache_file.name}")
             
             # 나이 제한으로 오래된 파일 삭제
             cutoff_time = datetime.now() - self.cache_max_age
             for cache_file, size, mtime in files_with_time:
                 if cache_file.exists() and mtime < cutoff_time:
                     cache_file.unlink()
-                    logger.info(f"🗑️ 캐시 파일 삭제 (나이 제한): {cache_file.name}")
+                    logger.info(f"[삭제] 캐시 파일 삭제 (나이 제한): {cache_file.name}")
             
         except Exception as e:
             logger.warning(f"캐시 정리 중 오류: {e}")
@@ -165,17 +165,17 @@ class ComPowerPointConverter:
             변환된 PDF 파일 경로 (실패 시 None)
         """
         if not self.is_available():
-            logger.error("❌ COM 변환기를 사용할 수 없습니다")
+            logger.error("[오류] COM 변환기를 사용할 수 없습니다")
             return None
         
         if not os.path.exists(ppt_file_path):
-            logger.error(f"❌ PPT 파일을 찾을 수 없습니다: {ppt_file_path}")
+            logger.error(f"[오류] PPT 파일을 찾을 수 없습니다: {ppt_file_path}")
             return None
         
         # 캐시 확인
         cached_pdf = self._get_cached_pdf_path(ppt_file_path)
         if cached_pdf.exists():
-            logger.info(f"✅ 캐시된 PDF 사용: {cached_pdf}")
+            logger.info(f"[완료] 캐시된 PDF 사용: {cached_pdf}")
             return str(cached_pdf)
         
         # 캐시 정리
@@ -187,11 +187,11 @@ class ComPowerPointConverter:
         try:
             start_time = time.time()
             ppt_name = os.path.basename(ppt_file_path)
-            logger.info(f"🚀 COM 변환 시작: {ppt_name}")
+            logger.info(f"[시작] COM 변환 시작: {ppt_name}")
             
             with self._lock:  # COM 객체는 스레드 안전하지 않음
                 # PowerPoint 애플리케이션 시작 (백그라운드)
-                logger.info("   📱 PowerPoint 애플리케이션 시작 중...")
+                logger.info("   [모바일] PowerPoint 애플리케이션 시작 중...")
                 ppt_app = comtypes.client.CreateObject("PowerPoint.Application")
                 ppt_app.Visible = 0  # 백그라운드 실행
                 ppt_app.DisplayAlerts = 0  # 알림 비활성화
@@ -204,7 +204,7 @@ class ComPowerPointConverter:
                     logger.debug("매크로 비활성화 설정 불가 (Office 버전 제한)")
                 
                 # 프레젠테이션 열기
-                logger.info("   📂 프레젠테이션 열기 중...")
+                logger.info("   [폴더] 프레젠테이션 열기 중...")
                 abs_ppt_path = os.path.abspath(ppt_file_path)
                 presentation = ppt_app.Presentations.Open(
                     abs_ppt_path,
@@ -214,7 +214,7 @@ class ComPowerPointConverter:
                 )
                 
                 # PDF로 저장
-                logger.info("   💾 PDF로 변환 중...")
+                logger.info("   [저장] PDF로 변환 중...")
                 abs_pdf_path = os.path.abspath(str(cached_pdf))
                 
                 # ppSaveAsPDF = 32
@@ -223,15 +223,15 @@ class ComPowerPointConverter:
                 # 변환 완료 확인
                 if cached_pdf.exists() and cached_pdf.stat().st_size > 0:
                     elapsed = time.time() - start_time
-                    logger.info(f"✅ COM 변환 완료! ({elapsed:.1f}초)")
-                    logger.info(f"   📄 PDF 크기: {cached_pdf.stat().st_size / 1024:.1f} KB")
+                    logger.info(f"[완료] COM 변환 완료! ({elapsed:.1f}초)")
+                    logger.info(f"   [파일] PDF 크기: {cached_pdf.stat().st_size / 1024:.1f} KB")
                     return str(cached_pdf)
                 else:
-                    logger.error("❌ PDF 파일이 생성되지 않았습니다")
+                    logger.error("[오류] PDF 파일이 생성되지 않았습니다")
                     return None
                     
         except Exception as e:
-            logger.error(f"❌ COM 변환 오류: {e}")
+            logger.error(f"[오류] COM 변환 오류: {e}")
             
             # 실패한 캐시 파일 삭제
             if cached_pdf.exists():

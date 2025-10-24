@@ -394,7 +394,7 @@ class SearchIndexer:
         self.stop_indexing = False
         self.indexed_paths = set()
         
-        # 🚀 JSON 캐싱 시스템 (사용자 요청)
+        # [시작] JSON 캐싱 시스템 (사용자 요청)
         self.cache_directory = None
         self.cache_file_path = None
         self.metadata_file_path = None
@@ -412,15 +412,15 @@ class SearchIndexer:
         if not os.path.exists(directory_path):
             return
         
-        # 🚀 캐시 디렉토리 설정 (사용자 요청: 동일 경로에 JSON 파일)
+        # [시작] 캐시 디렉토리 설정 (사용자 요청: 동일 경로에 JSON 파일)
         self.set_cache_directory(directory_path)
         
-        # 📂 캐시에서 기존 인덱스 로드 시도
+        # [폴더] 캐시에서 기존 인덱스 로드 시도
         cache_loaded, files_to_reindex, new_files = self.load_index_from_cache(directory_path, recursive)
         
-        print(f"📂 디렉토리 인덱싱 시작: {directory_path}")
+        print(f"[폴더] 디렉토리 인덱싱 시작: {directory_path}")
         if cache_loaded:
-            print("⚡ 캐시에서 기존 인덱스 로드됨. 변경된 파일만 처리합니다.")
+            print("[변환기] 캐시에서 기존 인덱스 로드됨. 변경된 파일만 처리합니다.")
         
         start_time = time.time()
         indexed_count = 0
@@ -430,7 +430,7 @@ class SearchIndexer:
             files_to_index = []
             
             if cache_loaded:
-                # 🚀 캐시가 있을 때: 변경된 파일 + 새로운 파일만 처리
+                # [시작] 캐시가 있을 때: 변경된 파일 + 새로운 파일만 처리
                 files_to_index = files_to_reindex + new_files
                 print(f"🎨 스마트 인덱싱: 변경된 파일 {len(files_to_reindex)}개 + 새로운 파일 {len(new_files)}개")
             else:
@@ -455,21 +455,21 @@ class SearchIndexer:
             
             total_files = len(files_to_index)
             if cache_loaded:
-                print(f"📄 인덱싱 대상 파일: {total_files}개 (변경/신규 파일만)")
+                print(f"[파일] 인덱싱 대상 파일: {total_files}개 (변경/신규 파일만)")
             else:
-                print(f"📄 인덱싱 대상 파일: {total_files}개 (전체 파일)")
+                print(f"[파일] 인덱싱 대상 파일: {total_files}개 (전체 파일)")
             
-            # ⚡ 빠른 바이패스: 인덱싱할 파일이 없으면 스킵 (단, 캐시 업데이트는 필요)
+            # [변환기] 빠른 바이패스: 인덱싱할 파일이 없으면 스킵 (단, 캐시 업데이트는 필요)
             if total_files == 0:
-                print("🎉 변경된 파일이 없습니다. 인덱싱 완료!")
+                print("[완료] 변경된 파일이 없습니다. 인덱싱 완료!")
                 # 삭제된 파일이 있다면 캐시 업데이트
                 if cache_loaded:
                     self.save_index_to_cache()
                 return
             
-            # 🚀 멀티스레드 인덱싱 (사용자 요청: 3-4개 스레드로 속도 최대화)
+            # [시작] 멀티스레드 인덱싱 (사용자 요청: 3-4개 스레드로 속도 최대화)
             max_workers = min(4, max(1, len(files_to_index) // 10))  # 최적 스레드 수
-            print(f"⚡ {max_workers}개 스레드로 병렬 인덱싱 시작...")
+            print(f"[변환기] {max_workers}개 스레드로 병렬 인덱싱 시작...")
             
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # 파일들을 스레드에 분배
@@ -496,20 +496,20 @@ class SearchIndexer:
                     
                     except Exception as e:
                         file_path = futures[future]
-                        print(f"❌ 파일 인덱싱 오류 ({file_path}): {e}")
+                        print(f"[오류] 파일 인덱싱 오류 ({file_path}): {e}")
             
             elapsed_time = time.time() - start_time
             if cache_loaded:
-                print(f"✅ 스마트 인덱싱 완료: {indexed_count}개 파일 처리, {elapsed_time:.2f}초 소요 (캐시 사용)")
+                print(f"[성공] 스마트 인덱싱 완료: {indexed_count}개 파일 처리, {elapsed_time:.2f}초 소요 (캐시 사용)")
             else:
-                print(f"✅ 전체 인덱싱 완료: {indexed_count}개 파일, {elapsed_time:.2f}초 소요")
+                print(f"[성공] 전체 인덱싱 완료: {indexed_count}개 파일, {elapsed_time:.2f}초 소요")
             
-            # 🚀 인덱싱 완료 후 JSON 캐시 저장 (사용자 요청)
+            # [시작] 인덱싱 완료 후 JSON 캐시 저장 (사용자 요청)
             if indexed_count > 0 or cache_loaded:
                 self.save_index_to_cache()  # 캐시가 있어도 업데이트
             
         except Exception as e:
-            print(f"❌ 디렉토리 인덱싱 오류: {e}")
+            print(f"[오류] 디렉토리 인덱싱 오류: {e}")
     
     def search_files(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
         """
@@ -522,12 +522,12 @@ class SearchIndexer:
         Returns:
             List[Dict[str, Any]]: 검색 결과
         """
-        # 🚀 JSON 캐시에서 우선 검색 (사용자 요청: JSON에서 바로 검색)
+        # [시작] JSON 캐시에서 우선 검색 (사용자 요청: JSON에서 바로 검색)
         if self.cache_file_path and os.path.exists(self.cache_file_path):
             return self.search_files_from_json(query, max_results)
         
         # 폴백: 메모리 인덱스에서 검색
-        print("⚠️ JSON 캐시 없음. 메모리 인덱스에서 검색...")
+        print("[경고] JSON 캐시 없음. 메모리 인덱스에서 검색...")
         return self.index.search(query, max_results)
     
     def add_file_to_index(self, file_path: str):
@@ -580,7 +580,7 @@ class SearchIndexer:
         """
         self.index.remove_file(file_path)
         self.indexed_paths.discard(file_path)
-        print(f"🗑️ 파일 인덱스 제거: {file_path}")
+        print(f"[삭제] 파일 인덱스 제거: {file_path}")
     
     def update_file_in_index(self, file_path: str):
         """
@@ -625,7 +625,7 @@ class SearchIndexer:
         self.cache_directory = directory_path
         self.cache_file_path = os.path.join(directory_path, ".file_index.json")
         self.metadata_file_path = os.path.join(directory_path, ".index_metadata.json")
-        print(f"📁 캐시 설정: {self.cache_file_path}")
+        print(f"[폴더] 캐시 설정: {self.cache_file_path}")
     
     def _get_file_hash(self, file_path: str) -> str:
         """
@@ -650,11 +650,11 @@ class SearchIndexer:
         인덱스를 JSON 파일에 저장합니다. (사용자 요청: JSON 파일로 캐싱)
         """
         if not self.cache_file_path or not self.cache_directory:
-            print("⚠️ 캐시 경로가 설정되지 않음")
+            print("[경고] 캐시 경로가 설정되지 않음")
             return
         
         try:
-            print("💾 인덱스를 JSON 파일에 저장 중...")
+            print("[저장] 인덱스를 JSON 파일에 저장 중...")
             
             # 인덱스 데이터 구성 (사용자 제안 방식)
             cache_data = {
@@ -695,10 +695,10 @@ class SearchIndexer:
             with open(str(self.metadata_file_path), 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, ensure_ascii=False, indent=2)
             
-            print(f"✅ 인덱스 캐시 저장 완료: {len(self.indexed_paths)}개 파일")
+            print(f"[성공] 인덱스 캐시 저장 완료: {len(self.indexed_paths)}개 파일")
             
         except Exception as e:
-            print(f"❌ 인덱스 캐시 저장 실패: {e}")
+            print(f"[오류] 인덱스 캐시 저장 실패: {e}")
     
     def load_index_from_cache(self, directory_path: str = None, recursive: bool = True) -> Tuple[bool, List[str], List[str]]:
         """
@@ -712,18 +712,18 @@ class SearchIndexer:
             tuple: (로드 성공 여부, 변경된 파일 리스트, 새로운 파일 리스트)
         """
         if not self.cache_file_path or not os.path.exists(self.cache_file_path):
-            print("📄 캐시 파일이 없습니다. 새로 인덱싱이 필요합니다.")
+            print("[파일] 캐시 파일이 없습니다. 새로 인덱싱이 필요합니다.")
             return False, [], []
         
         try:
-            print("📂 JSON 캐시에서 인덱스 로드 중...")
+            print("[폴더] JSON 캐시에서 인덱스 로드 중...")
             
             with open(str(self.cache_file_path), 'r', encoding='utf-8') as f:
                 cache_data = json.load(f)
             
             # 캐시 버전 체크
             if cache_data.get("index_version") != "1.0":
-                print("⚠️ 캐시 버전 불일치. 새로 인덱싱이 필요합니다.")
+                print("[경고] 캐시 버전 불일치. 새로 인덱싱이 필요합니다.")
                 return False, [], []
             
             # 파일 변경 사항 체크 (스마트 재인덱싱)
@@ -757,7 +757,7 @@ class SearchIndexer:
                     self.indexed_paths.add(full_path)
                     valid_files += 1
             
-            print(f"✅ 캐시에서 {valid_files}개 파일 로드 완료")
+            print(f"[성공] 캐시에서 {valid_files}개 파일 로드 완료")
             
             # 새로운 파일 및 삭제된 파일 감지 (현재 디렉토리와 캐시 비교)
             new_files = []
@@ -820,7 +820,7 @@ class SearchIndexer:
                 # 삭제된 파일 = 캐시된 파일 - 현재 파일 (정규화된 경로로 정확한 비교)
                 deleted_files_normalized = list(cached_files - current_files)
                 
-                # 🔄 인덱싱을 위해 원본 절대 경로로 복원 (정규화되지 않은 원본 경로 사용)
+                # [변경] 인덱싱을 위해 원본 절대 경로로 복원 (정규화되지 않은 원본 경로 사용)
                 # new_files: 정규화된 경로에서 원본 절대 경로 매핑
                 normalized_to_original = {}
                 if recursive:
@@ -851,18 +851,18 @@ class SearchIndexer:
                         self.remove_file_from_index(deleted_file)
             
             if files_to_reindex:
-                print(f"🔄 변경된 파일 {len(files_to_reindex)}개 재인덱싱 필요")
+                print(f"[변경] 변경된 파일 {len(files_to_reindex)}개 재인덱싱 필요")
             
             if new_files:
-                print(f"📄 새로운 파일 {len(new_files)}개 발견")
+                print(f"[파일] 새로운 파일 {len(new_files)}개 발견")
             
             if deleted_files:
-                print(f"🗑️ 삭제된 파일 {len(deleted_files)}개 제거")
+                print(f"[삭제] 삭제된 파일 {len(deleted_files)}개 제거")
             
             return True, files_to_reindex, new_files
             
         except Exception as e:
-            print(f"❌ 캐시 로드 실패: {e}")
+            print(f"[오류] 캐시 로드 실패: {e}")
             return False, [], []
     
     def get_cache_statistics(self) -> Dict[str, Any]:
@@ -917,7 +917,7 @@ class SearchIndexer:
             return False
             
         except Exception as e:
-            print(f"❌ 파일 인덱싱 오류 ({file_path}): {e}")
+            print(f"[오류] 파일 인덱싱 오류 ({file_path}): {e}")
             return False
     
     def search_files_from_json(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
@@ -932,7 +932,7 @@ class SearchIndexer:
             List[Dict[str, Any]]: 검색 결과
         """
         if not self.cache_file_path or not os.path.exists(self.cache_file_path):
-            print("📄 JSON 캐시 파일이 없습니다. 인덱싱을 먼저 실행하세요.")
+            print("[파일] JSON 캐시 파일이 없습니다. 인덱싱을 먼저 실행하세요.")
             return []
         
         try:
@@ -1018,11 +1018,11 @@ class SearchIndexer:
             # 관련성 점수로 정렬
             results.sort(key=lambda x: x['relevance_score'], reverse=True)
             
-            print(f"✅ JSON 검색 완료: {len(results)}개 결과")
+            print(f"[성공] JSON 검색 완료: {len(results)}개 결과")
             return results[:max_results]
             
         except Exception as e:
-            print(f"❌ JSON 검색 실패: {e}")
+            print(f"[오류] JSON 검색 실패: {e}")
             return []
     
     def search_files_by_filename_from_json(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
@@ -1075,7 +1075,7 @@ class SearchIndexer:
             return results[:max_results]
             
         except Exception as e:
-            print(f"❌ JSON 파일명 검색 실패: {e}")
+            print(f"[오류] JSON 파일명 검색 실패: {e}")
             return []
     
     def _extract_context_from_content(self, content: str, query: str, context_length: int = 150) -> str:

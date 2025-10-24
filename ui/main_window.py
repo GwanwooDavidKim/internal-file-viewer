@@ -134,7 +134,7 @@ class MainWindow(QMainWindow):
         self.content_viewer.file_load_failed.connect(self.on_file_load_failed)
         content_layout.addWidget(self.content_viewer)
         
-        self.right_tabs.addTab(content_widget, "📄 파일 뷰어")
+        self.right_tabs.addTab(content_widget, "[파일] 파일 뷰어")
         
         # 검색 탭
         self.search_widget = SearchWidget()
@@ -243,10 +243,10 @@ class MainWindow(QMainWindow):
         user_info = self.auth_manager.get_user_info()
         if user_info:
             if user_info["is_admin"]:
-                info_text = f"👤 {user_info['username']} (관리자)"
+                info_text = f"[사용자] {user_info['username']} (관리자)"
             else:
                 remaining_days = user_info.get("remaining_days", 0)
-                info_text = f"👤 {user_info['username']} (남은 일수: {remaining_days}일)"
+                info_text = f"[사용자] {user_info['username']} (남은 일수: {remaining_days}일)"
             
             self.user_info_label.setText(info_text)
             self.user_info_label.setStyleSheet(f"color: {config.UI_COLORS['primary']}; font-weight: bold;")
@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
             # 검색 위젯의 로딩 알림창 닫기 - 나중에 닫기
             self.search_widget.close_loading_dialog()
             
-            print(f"❌ 파일 로딩 실패 - 파일 뷰어 탭으로 전환: {file_path}")
+            print(f"[오류] 파일 로딩 실패 - 파일 뷰어 탭으로 전환: {file_path}")
             
             # 플래그 리셋
             self.file_selected_from_search = False

@@ -43,11 +43,11 @@ class PptToPdfConverter:
         
         print(f"🔄 PptToPdfConverter 초기화 - 캐시 폴더: {self.cache_dir}")
         if self.libreoffice_path:
-            print(f"✅ LibreOffice 발견: {self.libreoffice_path}")
-            logger.info(f"✅ LibreOffice 발견: {self.libreoffice_path}")
+            print(f"[완료] LibreOffice 발견: {self.libreoffice_path}")
+            logger.info(f"[완료] LibreOffice 발견: {self.libreoffice_path}")
         else:
-            print("❌ LibreOffice를 찾을 수 없습니다. PPT 미리보기가 제한됩니다.")
-            logger.error("❌ LibreOffice를 찾을 수 없습니다. PPT 미리보기가 제한됩니다.")
+            print("[오류] LibreOffice를 찾을 수 없습니다. PPT 미리보기가 제한됩니다.")
+            logger.error("[오류] LibreOffice를 찾을 수 없습니다. PPT 미리보기가 제한됩니다.")
     
     def _find_libreoffice(self) -> Optional[str]:
         """LibreOffice 실행 파일을 찾습니다"""
@@ -68,16 +68,16 @@ class PptToPdfConverter:
             result = subprocess.run(["soffice", "--version"], 
                                   capture_output=True, text=True, timeout=15)
             if result.returncode == 0:
-                logger.info(f"✅ PATH에서 soffice 발견: {result.stdout.strip()}")
+                logger.info(f"[완료] PATH에서 soffice 발견: {result.stdout.strip()}")
                 return "soffice"
             else:
-                logger.warning(f"⚠️ soffice 실행 실패: returncode={result.returncode}")
+                logger.warning(f"[경고] soffice 실행 실패: returncode={result.returncode}")
         except subprocess.TimeoutExpired:
-            logger.warning("⚠️ soffice --version 타임아웃 (15초)")
+            logger.warning("[경고] soffice --version 타임아웃 (15초)")
         except FileNotFoundError:
-            logger.warning("⚠️ soffice 명령어를 찾을 수 없음")
+            logger.warning("[경고] soffice 명령어를 찾을 수 없음")
         except Exception as e:
-            logger.warning(f"⚠️ soffice 실행 중 예외: {e}")
+            logger.warning(f"[경고] soffice 실행 중 예외: {e}")
         
         # libreoffice 명령도 시도
         logger.info("🔍 libreoffice 명령으로 재시도...")
@@ -85,27 +85,27 @@ class PptToPdfConverter:
             result = subprocess.run(["libreoffice", "--version"], 
                                   capture_output=True, text=True, timeout=15)
             if result.returncode == 0:
-                logger.info(f"✅ PATH에서 libreoffice 발견: {result.stdout.strip()}")
+                logger.info(f"[완료] PATH에서 libreoffice 발견: {result.stdout.strip()}")
                 return "libreoffice"
             else:
-                logger.warning(f"⚠️ libreoffice 실행 실패: returncode={result.returncode}")
+                logger.warning(f"[경고] libreoffice 실행 실패: returncode={result.returncode}")
         except subprocess.TimeoutExpired:
-            logger.warning("⚠️ libreoffice --version 타임아웃 (15초)")
+            logger.warning("[경고] libreoffice --version 타임아웃 (15초)")
         except FileNotFoundError:
-            logger.warning("⚠️ libreoffice 명령어를 찾을 수 없음")
+            logger.warning("[경고] libreoffice 명령어를 찾을 수 없음")
         except Exception as e:
-            logger.warning(f"⚠️ libreoffice 실행 중 예외: {e}")
+            logger.warning(f"[경고] libreoffice 실행 중 예외: {e}")
         
         # 직접 경로에서 찾기
         logger.info("🔍 하드코딩된 경로에서 LibreOffice 검색 중...")
         for path in possible_paths:
             if os.path.exists(path):
-                logger.info(f"✅ 경로에서 발견: {path}")
+                logger.info(f"[완료] 경로에서 발견: {path}")
                 return path
             else:
-                logger.debug(f"❌ 경로 없음: {path}")
+                logger.debug(f"[오류] 경로 없음: {path}")
         
-        logger.error("❌ LibreOffice를 찾을 수 없습니다")
+        logger.error("[오류] LibreOffice를 찾을 수 없습니다")
         return None
     
     def _get_cache_key(self, file_path: str) -> str:
@@ -131,18 +131,18 @@ class PptToPdfConverter:
             변환된 PDF 파일 경로 (실패 시 None)
         """
         if not os.path.exists(ppt_file_path):
-            logger.error(f"❌ PPT 파일을 찾을 수 없습니다: {ppt_file_path}")
+            logger.error(f"[오류] PPT 파일을 찾을 수 없습니다: {ppt_file_path}")
             return None
         
         # 캐시 확인
         cached_pdf = self._get_cached_pdf_path(ppt_file_path)
         if cached_pdf.exists():
-            logger.info(f"✅ 캐시된 PDF 사용: {cached_pdf}")
+            logger.info(f"[완료] 캐시된 PDF 사용: {cached_pdf}")
             return str(cached_pdf)
         
         # LibreOffice가 없으면 변환 불가
         if not self.libreoffice_path:
-            logger.error("❌ LibreOffice를 찾을 수 없어 PDF 변환 불가")
+            logger.error("[오류] LibreOffice를 찾을 수 없어 PDF 변환 불가")
             return None
         
         try:
@@ -173,24 +173,24 @@ class PptToPdfConverter:
                 if temp_pdf.exists():
                     # 캐시 키로 파일명 변경
                     shutil.move(str(temp_pdf), str(cached_pdf))
-                    logger.info(f"✅ PDF 변환 완료: {cached_pdf}")
+                    logger.info(f"[완료] PDF 변환 완료: {cached_pdf}")
                     
                     # 캐시 정리
                     self._cleanup_old_cache()
                     
                     return str(cached_pdf)
                 else:
-                    logger.error(f"❌ 변환된 PDF 파일을 찾을 수 없음: {temp_pdf}")
+                    logger.error(f"[오류] 변환된 PDF 파일을 찾을 수 없음: {temp_pdf}")
                     return None
             else:
-                logger.error(f"❌ PDF 변환 실패: {result.stderr}")
+                logger.error(f"[오류] PDF 변환 실패: {result.stderr}")
                 return None
                 
         except subprocess.TimeoutExpired:
-            logger.error("❌ PDF 변환 타임아웃 (2분 초과)")
+            logger.error("[오류] PDF 변환 타임아웃 (2분 초과)")
             return None
         except Exception as e:
-            logger.error(f"❌ PDF 변환 오류: {e}")
+            logger.error(f"[오류] PDF 변환 오류: {e}")
             return None
     
     def _cleanup_old_cache(self):
@@ -221,7 +221,7 @@ class PptToPdfConverter:
                     file_info['path'].unlink()
                     files_info.remove(file_info)
                     total_size -= file_info['size']
-                    logger.debug(f"🗑️ 오래된 캐시 삭제: {file_info['path']}")
+                    logger.debug(f"[삭제] 오래된 캐시 삭제: {file_info['path']}")
             
             # 크기 기준 정리 (1GB 초과)
             if total_size > self.cache_max_size:
@@ -234,21 +234,21 @@ class PptToPdfConverter:
                     
                     file_info['path'].unlink()
                     total_size -= file_info['size']
-                    logger.debug(f"🗑️ 크기 제한으로 캐시 삭제: {file_info['path']}")
+                    logger.debug(f"[삭제] 크기 제한으로 캐시 삭제: {file_info['path']}")
             
-            logger.debug(f"📊 캐시 정리 완료 - 파일: {len(files_info)}개, 크기: {total_size/1024/1024:.1f}MB")
+            logger.debug(f"[정렬] 캐시 정리 완료 - 파일: {len(files_info)}개, 크기: {total_size/1024/1024:.1f}MB")
             
         except Exception as e:
-            logger.error(f"❌ 캐시 정리 오류: {e}")
+            logger.error(f"[오류] 캐시 정리 오류: {e}")
     
     def clear_cache(self):
         """모든 캐시 파일 삭제"""
         try:
             for file_path in self.cache_dir.glob("*.pdf"):
                 file_path.unlink()
-            logger.info("🗑️ 모든 캐시 파일 삭제 완료")
+            logger.info("[삭제] 모든 캐시 파일 삭제 완료")
         except Exception as e:
-            logger.error(f"❌ 캐시 삭제 오류: {e}")
+            logger.error(f"[오류] 캐시 삭제 오류: {e}")
     
     def get_cache_info(self) -> Dict[str, Any]:
         """캐시 정보 반환"""
@@ -263,7 +263,7 @@ class PptToPdfConverter:
                 'libreoffice_available': self.libreoffice_path is not None
             }
         except Exception as e:
-            logger.error(f"❌ 캐시 정보 조회 오류: {e}")
+            logger.error(f"[오류] 캐시 정보 조회 오류: {e}")
             return {'error': str(e)}
 
 

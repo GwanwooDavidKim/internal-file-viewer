@@ -273,11 +273,11 @@ class FileBrowser(QWidget):
             file_info = self.file_manager.get_file_info(file_path)
             
             if file_info.get('supported', False):
-                info_text = f"📄 {file_info['filename']} ({file_info['file_size_mb']} MB)"
+                info_text = f"[파일] {file_info['filename']} ({file_info['file_size_mb']} MB)"
                 if file_info.get('file_type'):
                     info_text += f" - {file_info['file_type'].upper()}"
             else:
-                info_text = f"📄 {os.path.basename(file_path)} (지원되지 않는 형식)"
+                info_text = f"[파일] {os.path.basename(file_path)} (지원되지 않는 형식)"
             
             self.info_label.setText(info_text)
             
