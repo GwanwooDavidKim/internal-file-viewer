@@ -677,7 +677,8 @@ class SearchIndexer:
                         "modified": file_info.get('indexed_time', datetime.now()).isoformat(),
                         "type": file_info.get('file_type', 'unknown'),
                         "file_hash": self._get_file_hash(file_path),
-                        "full_path": file_path
+                        "full_path": file_path,
+                        "pages": file_info.get('pages')  # 페이지별 데이터 저장
                     }
             
             # JSON 파일로 저장
@@ -751,9 +752,12 @@ class SearchIndexer:
                         'supported': True
                     }
                     
-                    # 인덱스에 추가
+                    # 페이지별 데이터 복원
+                    pages_data = file_data.get('pages')
+                    
+                    # 인덱스에 추가 (pages_data 포함)
                     content = file_data.get('content', '')
-                    self.index.add_file(full_path, content, file_info)
+                    self.index.add_file(full_path, content, file_info, pages_data)
                     self.indexed_paths.add(full_path)
                     valid_files += 1
             
