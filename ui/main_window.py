@@ -28,6 +28,7 @@ class MainWindow(QMainWindow):
         self.auth_manager = AuthenticationManager()
         self.current_folder_path = ""
         self.file_selected_from_search = False  # 검색 위젯에서 파일이 선택되었는지 추적
+        self.pending_matching_pages = []  # 파일 로드 후 적용할 매칭 페이지 목록
         self.setup_ui()
         self.setup_session_timer()
         
@@ -290,12 +291,12 @@ class MainWindow(QMainWindow):
         sender = self.sender()
         self.file_selected_from_search = (sender == self.search_widget)
         
-        # 검색 결과에서 선택된 경우 매칭된 페이지 정보 전달
+        # 검색 결과에서 선택된 경우 매칭된 페이지 정보 저장 (파일 로드 후에 적용)
         if self.file_selected_from_search:
-            matching_pages = self.search_widget.get_current_matching_pages()
-            self.content_viewer.set_matching_pages(matching_pages)
+            self.pending_matching_pages = self.search_widget.get_current_matching_pages()
         else:
-            # 파일 브라우저에서 선택된 경우 검색 페이지 초기화
+            # 파일 브라우저에서 선택된 경우 초기화
+            self.pending_matching_pages = []
             self.content_viewer.clear_matching_pages()
         
         self.status_bar.showMessage(f"파일 로딩 중: {file_path}")
@@ -309,6 +310,11 @@ class MainWindow(QMainWindow):
         Args:
             file_path (str): 로드 완료된 파일의 경로
         """
+        # 검색 결과 페이지가 있으면 적용
+        if self.pending_matching_pages:
+            self.content_viewer.set_matching_pages(self.pending_matching_pages)
+            self.pending_matching_pages = []  # 적용 후 초기화
+        
         if self.file_selected_from_search:
             # 파일 뷰어 탭으로 자동 전환 (인덱스 0) - 먼저 전환
             self.right_tabs.setCurrentIndex(0)
@@ -316,7 +322,7 @@ class MainWindow(QMainWindow):
             # 검색 위젯의 로딩 알림창 닫기 - 나중에 닫기
             self.search_widget.close_loading_dialog()
             
-            print(f"🎯 파일 뷰어 탭으로 자동 전환: {file_path}")
+            print(f"[작업] 파일 뷰어 탭으로 자동 전환: {file_path}")
             
             # 플래그 리셋
             self.file_selected_from_search = False

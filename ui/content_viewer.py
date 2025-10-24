@@ -131,7 +131,7 @@ class ContentViewer(QWidget):
         buttons_layout = QHBoxLayout()
         
         # 폴더 열기 버튼
-        self.open_folder_button = QPushButton("[폴더] 폴더 열기")
+        self.open_folder_button = QPushButton("📁 폴더 열기")
         self.open_folder_button.setFont(QFont(config.UI_FONTS["font_family"], 10))
         self.open_folder_button.setFixedSize(100, 35)
         self.open_folder_button.setStyleSheet("""
@@ -159,7 +159,7 @@ class ContentViewer(QWidget):
         buttons_layout.addWidget(self.open_folder_button)
         
         # 원본 열기 버튼
-        self.open_file_button = QPushButton("[폴더] 원본 열기")
+        self.open_file_button = QPushButton("📂 원본 열기")
         self.open_file_button.setFont(QFont(config.UI_FONTS["font_family"], 10))
         self.open_file_button.setFixedSize(100, 35)
         self.open_file_button.setStyleSheet("""
