@@ -709,16 +709,28 @@ class SearchWidget(QWidget):
                     filename = result['filename']
                     file_type = result['file_type'].upper()
                     file_size = result['file_size_mb']
+                    matching_pages = result.get('matching_pages', [])
                     
-                    # 📄 파일 아이콘과 정보 표시 (들여쓰기)
-                    item_text = f"    📄 {filename} ({file_type}, {file_size}MB)"
+                    # 페이지 정보 추가
+                    page_info = ""
+                    if matching_pages:
+                        if len(matching_pages) <= 5:
+                            page_info = f" | 페이지: {', '.join(map(str, matching_pages))}"
+                        else:
+                            page_info = f" | 페이지: {', '.join(map(str, matching_pages[:5]))}... ({len(matching_pages)}개)"
+                    
+                    # 파일 아이콘과 정보 표시 (들여쓰기)
+                    item_text = f"    [파일] {filename} ({file_type}, {file_size}MB){page_info}"
                     item.setText(item_text)
                     
                     # 결과 데이터 저장
                     item.setData(Qt.ItemDataRole.UserRole, result)
                     
-                    # 툴팁에 전체 경로 표시
-                    item.setToolTip(f"전체 경로: {result.get('file_path', '')}")
+                    # 툴팁에 전체 경로 + 전체 페이지 번호 표시
+                    tooltip = f"전체 경로: {result.get('file_path', '')}"
+                    if matching_pages:
+                        tooltip += f"\n검색어 포함 페이지: {', '.join(map(str, matching_pages))}"
+                    item.setToolTip(tooltip)
                     
                     self.results_list.addItem(item)
     

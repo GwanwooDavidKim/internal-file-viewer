@@ -74,14 +74,15 @@ class SearchIndex:
         
         return filtered_tokens
     
-    def add_file(self, file_path: str, content: str, file_info: Dict[str, Any]):
+    def add_file(self, file_path: str, content: str, file_info: Dict[str, Any], pages_data: List[Dict[str, Any]] = None):
         """
         파일을 인덱스에 추가합니다.
         
         Args:
             file_path (str): 파일 경로
-            content (str): 파일 내용
+            content (str): 파일 내용 (전체)
             file_info (Dict[str, Any]): 파일 정보
+            pages_data (List[Dict[str, Any]], optional): 페이지별 데이터 [{"page_num": 1, "content": "..."}, ...]
         """
         with self.lock:
             # 기존 인덱스에서 해당 파일 제거
@@ -93,6 +94,7 @@ class SearchIndex:
                 'indexed_time': datetime.now(),
                 'content_preview': content[:200] if content else '',
                 'full_content': content,  # 전체 내용도 저장 (검색용)
+                'pages': pages_data if pages_data else None,  # 페이지별 데이터
             }
             
             # 파일명도 인덱싱에 포함
@@ -241,6 +243,9 @@ class SearchIndex:
                     content_preview = file_info.get('content_preview', '')
                     highlighted_preview = self._highlight_matches(content_preview, query_tokens)
                     
+                    # 페이지 번호 찾기
+                    matching_pages = self._find_matching_pages(file_info, query_tokens)
+                    
                     result = {
                         'file_path': file_path,
                         'filename': os.path.basename(file_path),
@@ -248,7 +253,8 @@ class SearchIndex:
                         'file_size_mb': file_info.get('file_size_mb', 0),
                         'indexed_time': file_info.get('indexed_time'),
                         'preview': highlighted_preview,
-                        'relevance_score': self._calculate_relevance(file_path, query_tokens)
+                        'relevance_score': self._calculate_relevance(file_path, query_tokens),
+                        'matching_pages': matching_pages  # 검색어가 있는 페이지 번호들
                     }
                     search_results.append(result)
             
@@ -256,6 +262,46 @@ class SearchIndex:
             search_results.sort(key=lambda x: x['relevance_score'], reverse=True)
             
             return search_results
+    
+    def _find_matching_pages(self, file_info: Dict[str, Any], query_tokens: List[str]) -> List[int]:
+        """
+        검색어가 포함된 페이지 번호들을 찾습니다.
+        
+        Args:
+            file_info (Dict[str, Any]): 파일 정보
+            query_tokens (List[str]): 검색 토큰들
+            
+        Returns:
+            List[int]: 매칭된 페이지 번호 목록
+        """
+        pages_data = file_info.get('pages')
+        if not pages_data:
+            return []
+        
+        matching_pages = []
+        for page in pages_data:
+            page_num = page.get('page_num')
+            content = page.get('content', '').lower()
+            
+            # 모든 검색 토큰이 이 페이지에 있는지 확인
+            all_tokens_found = True
+            for token in query_tokens:
+                # 일반 검색
+                if token.lower() in content:
+                    continue
+                # 공백 무시 검색
+                token_no_space = token.replace(' ', '').replace('\n', '').replace('\t', '')
+                content_no_space = content.replace(' ', '').replace('\n', '').replace('\t', '')
+                if token_no_space in content_no_space:
+                    continue
+                # 토큰이 없으면 이 페이지는 매칭 안 됨
+                all_tokens_found = False
+                break
+            
+            if all_tokens_found and page_num != 0:  # Word 문서(page_num=0)는 제외
+                matching_pages.append(page_num)
+        
+        return sorted(matching_pages)
     
     def _highlight_matches(self, text: str, query_tokens: List[str]) -> str:
         """
@@ -496,19 +542,34 @@ class SearchIndexer:
                 # 엑셀 파일은 인덱싱에서 제외 (성능상 이유)
                 file_type = self.file_manager.get_file_type(file_path)
                 if file_type == 'excel':
-                    print(f"⚠️ 엑셀 파일은 인덱싱에서 제외됨: {file_path}")
+                    print(f"[INFO] 엑셀 파일은 인덱싱에서 제외됨: {file_path}")
                     return
                 
                 file_info = self.file_manager.get_file_info(file_path)
                 
                 if file_info.get('supported', False):
                     content = self.file_manager.extract_text(file_path)
-                    self.index.add_file(file_path, content, file_info)
+                    
+                    # 페이지별 데이터 추출 (PDF/PowerPoint만)
+                    pages_data = None
+                    if file_type == 'pdf':
+                        pdf_handler = self.file_manager.handlers.get('pdf')
+                        if pdf_handler:
+                            pages_data = pdf_handler.extract_text_by_pages(file_path)
+                    elif file_type == 'powerpoint':
+                        ppt_handler = self.file_manager.handlers.get('powerpoint')
+                        if ppt_handler:
+                            pages_data = ppt_handler.extract_text_by_slides(file_path)
+                    elif file_type == 'word':
+                        # Word는 페이지 구분 어려움 - 메타데이터로 표시
+                        pages_data = [{"page_num": 0, "content": "(Word 문서는 페이지 구분이 어렵습니다)"}]
+                    
+                    self.index.add_file(file_path, content, file_info, pages_data)
                     self.indexed_paths.add(file_path)
-                    print(f"✅ 파일 인덱싱 완료: {file_path}")
+                    print(f"[OK] 파일 인덱싱 완료: {file_path}")
         
         except Exception as e:
-            print(f"❌ 파일 인덱싱 오류 ({file_path}): {e}")
+            print(f"[ERROR] 파일 인덱싱 오류 ({file_path}): {e}")
     
     def remove_file_from_index(self, file_path: str):
         """
