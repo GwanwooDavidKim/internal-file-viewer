@@ -306,6 +306,73 @@ class PowerPointHandler:
             logger.error(f"슬라이드 텍스트 추출 오류: {e}")
             return {'error': f"슬라이드 텍스트 추출 오류: {e}"}
     
+    def extract_text_by_slides(self, file_path: str, max_slides: int = None) -> List[Dict[str, Any]]:
+        """
+        전체 프레젠테이션에서 슬라이드별로 텍스트를 추출합니다.
+        
+        Args:
+            file_path (str): PowerPoint 파일 경로
+            max_slides (int, optional): 최대 슬라이드 수 제한 (None이면 모든 슬라이드)
+            
+        Returns:
+            List[Dict[str, Any]]: 슬라이드별 텍스트 정보 [{"page_num": 1, "content": "..."}, ...]
+        """
+        # .ppt 파일은 python-pptx로 직접 읽을 수 없으므로 PDF에서 텍스트 추출
+        if file_path.lower().endswith('.ppt'):
+            try:
+                logger.info(f"🔄 .ppt 파일 텍스트 추출: PDF 변환 방식 사용")
+                pdf_path = self.active_converter.convert_to_pdf(file_path)
+                if pdf_path:
+                    return self.pdf_handler.extract_text_by_pages(pdf_path, max_pages=max_slides)
+                else:
+                    return [{"page_num": 1, "content": f".ppt 파일 텍스트 추출 실패: {os.path.basename(file_path)}"}]
+            except Exception as e:
+                logger.error(f".ppt 텍스트 추출 오류: {e}")
+                return [{"page_num": 1, "content": f".ppt 파일 텍스트 추출 오류: {e}"}]
+        
+        # .pptx 파일은 python-pptx로 직접 추출
+        try:
+            prs = Presentation(file_path)
+            slides_data = []
+            
+            # 슬라이드 수 제한 적용
+            slides_to_process = prs.slides
+            if max_slides is not None:
+                slides_to_process = list(prs.slides)[:max_slides]
+            
+            for i, slide in enumerate(slides_to_process):
+                slide_text_parts = []
+                
+                # 슬라이드 제목
+                title = ""
+                if slide.shapes.title and slide.shapes.title.text:
+                    title = slide.shapes.title.text.strip()
+                
+                # 슬라이드 내용
+                for shape in slide.shapes:
+                    if (hasattr(shape, "text") and hasattr(shape, "text_frame") and 
+                        hasattr(shape, 'text') and shape.text and shape.text.strip()):
+                        if shape != slide.shapes.title:
+                            slide_text_parts.append(shape.text)
+                
+                # 제목과 내용 결합
+                content_parts = []
+                if title:
+                    content_parts.append(title)
+                if slide_text_parts:
+                    content_parts.extend(slide_text_parts)
+                
+                slides_data.append({
+                    "page_num": i + 1,
+                    "content": "\n".join(content_parts) if content_parts else "[텍스트 없음]"
+                })
+            
+            return slides_data
+            
+        except Exception as e:
+            logger.error(f"PowerPoint 텍스트 추출 오류: {e}")
+            return [{"page_num": 1, "content": f"PowerPoint 텍스트 추출 오류: {e}"}]
+    
     def extract_text(self, file_path: str, max_slides: int = None) -> str:
         """
         전체 프레젠테이션에서 텍스트를 추출합니다.
@@ -318,50 +385,14 @@ class PowerPointHandler:
         Returns:
             str: 추출된 전체 텍스트
         """
-        # .ppt 파일은 python-pptx로 직접 읽을 수 없으므로 PDF에서 텍스트 추출
-        if file_path.lower().endswith('.ppt'):
-            try:
-                logger.info(f"🔄 .ppt 파일 텍스트 추출: PDF 변환 방식 사용")
-                if max_slides is not None:
-                    logger.info(f"텍스트 추출 제한: 최대 {max_slides}개 슬라이드만 처리")
-                pdf_path = self.active_converter.convert_to_pdf(file_path)
-                if pdf_path:
-                    # PDF에서 max_slides를 max_pages로 변환하여 전달
-                    return self.pdf_handler.extract_text(pdf_path, max_pages=max_slides)
-                else:
-                    return f".ppt 파일 텍스트 추출 실패: {os.path.basename(file_path)}"
-            except Exception as e:
-                logger.error(f".ppt 텍스트 추출 오류: {e}")
-                return f".ppt 파일 텍스트 추출 오류: {e}"
-        
-        # .pptx 파일은 python-pptx로 직접 추출
         try:
-            prs = Presentation(file_path)
+            slides_data = self.extract_text_by_slides(file_path, max_slides)
             all_text = []
             
-            # 슬라이드 수 제한 적용
-            slides_to_process = prs.slides
-            if max_slides is not None:
-                slides_to_process = list(prs.slides)[:max_slides]
-                logger.info(f"텍스트 추출 제한: 최대 {max_slides}개 슬라이드만 처리")
-            
-            for i, slide in enumerate(slides_to_process):
-                slide_text = []
-                
-                # 슬라이드 제목
-                if slide.shapes.title:
-                    slide_text.append(f"=== 슬라이드 {i + 1}: {slide.shapes.title.text} ===")
-                else:
-                    slide_text.append(f"=== 슬라이드 {i + 1} ===")
-                
-                # 슬라이드 내용
-                for shape in slide.shapes:
-                    if (hasattr(shape, "text") and hasattr(shape, "text_frame") and 
-                        hasattr(shape, 'text') and shape.text and shape.text.strip()):
-                        if shape != slide.shapes.title:
-                            slide_text.append(shape.text)
-                
-                all_text.append("\n".join(slide_text))
+            for slide_data in slides_data:
+                slide_num = slide_data["page_num"]
+                content = slide_data["content"]
+                all_text.append(f"=== 슬라이드 {slide_num} ===\n{content}")
             
             return "\n\n".join(all_text)
             

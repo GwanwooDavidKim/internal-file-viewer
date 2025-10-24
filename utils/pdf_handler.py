@@ -89,19 +89,19 @@ class PdfHandler:
             print(f"PDF 렌더링 오류 ({file_path}, 페이지 {page_num}): {e}")
             return None
     
-    def extract_text(self, file_path: str, max_pages: int = None) -> str:
+    def extract_text_by_pages(self, file_path: str, max_pages: int = None) -> List[Dict[str, Any]]:
         """
-        PDF에서 텍스트를 추출합니다. 여러 방법을 시도하여 최대한 많은 텍스트를 추출합니다.
+        PDF에서 페이지별로 텍스트를 추출합니다.
         
         Args:
             file_path (str): PDF 파일 경로
             max_pages (int): 추출할 최대 페이지 수 (None이면 전체)
             
         Returns:
-            str: 추출된 텍스트
+            List[Dict[str, Any]]: 페이지별 텍스트 정보 [{"page_num": 1, "content": "..."}, ...]
         """
         try:
-            text_content = []
+            pages_data = []
             
             with fitz.open(file_path) as doc:
                 page_count = len(doc)
@@ -116,7 +116,6 @@ class PdfHandler:
                     
                     # 방법 2: 텍스트가 없거나 적으면 다른 방법 시도
                     if len(text.strip()) < 50:
-                        # OCR이 필요할 수 있는 경우를 위한 더 세밀한 텍스트 추출
                         text_dict = page.get_text("dict")
                         extracted_text = self._extract_text_from_dict(text_dict)
                         if len(extracted_text.strip()) > len(text.strip()):
@@ -134,11 +133,35 @@ class PdfHandler:
                         if block_texts:
                             text = "\n".join(block_texts)
                     
-                    if text.strip():
-                        text_content.append(f"=== 페이지 {page_num + 1} ===\n{text.strip()}")
-                    else:
-                        # 텍스트가 전혀 없는 경우 (이미지 PDF일 가능성)
-                        text_content.append(f"=== 페이지 {page_num + 1} ===\n[이 페이지에서 텍스트를 추출할 수 없습니다. 이미지나 스캔된 문서일 수 있습니다.]")
+                    pages_data.append({
+                        "page_num": page_num + 1,
+                        "content": text.strip() if text.strip() else "[텍스트 없음]"
+                    })
+            
+            return pages_data
+            
+        except Exception as e:
+            return [{"page_num": 1, "content": f"텍스트 추출 오류: {e}"}]
+    
+    def extract_text(self, file_path: str, max_pages: int = None) -> str:
+        """
+        PDF에서 텍스트를 추출합니다. 여러 방법을 시도하여 최대한 많은 텍스트를 추출합니다.
+        
+        Args:
+            file_path (str): PDF 파일 경로
+            max_pages (int): 추출할 최대 페이지 수 (None이면 전체)
+            
+        Returns:
+            str: 추출된 텍스트
+        """
+        try:
+            pages_data = self.extract_text_by_pages(file_path, max_pages)
+            text_content = []
+            
+            for page_data in pages_data:
+                page_num = page_data["page_num"]
+                content = page_data["content"]
+                text_content.append(f"=== 페이지 {page_num} ===\n{content}")
             
             result_text = "\n\n".join(text_content)
             return result_text if result_text.strip() else "PDF에서 텍스트를 추출할 수 없습니다."
