@@ -128,7 +128,7 @@ class SearchWidget(QWidget):
         # 인덱싱 컨트롤
         indexing_layout = QHBoxLayout()
         
-        self.index_button = QPushButton("[경로] 폴더 인덱싱")
+        self.index_button = QPushButton("📂 폴더 인덱싱")
         self.index_button.clicked.connect(self.start_indexing)
         indexing_layout.addWidget(self.index_button)
         
@@ -220,7 +220,7 @@ class SearchWidget(QWidget):
         actions_layout.addStretch()
         
         # 파일 뷰어에서 열기 버튼
-        self.open_viewer_button = QPushButton("파일 뷰어에서 열기")
+        self.open_viewer_button = QPushButton("📄 뷰어에서 열기")
         self.open_viewer_button.setFixedSize(140, 35)
         self.open_viewer_button.setStyleSheet("""
             QPushButton {
@@ -247,7 +247,7 @@ class SearchWidget(QWidget):
         actions_layout.addWidget(self.open_viewer_button)
         
         # 폴더 열기 버튼
-        self.open_folder_button = QPushButton("[폴더] 폴더 열기")
+        self.open_folder_button = QPushButton("📁 폴더 열기")
         self.open_folder_button.setFixedSize(100, 35)
         self.open_folder_button.setStyleSheet("""
             QPushButton {
@@ -274,7 +274,7 @@ class SearchWidget(QWidget):
         actions_layout.addWidget(self.open_folder_button)
         
         # 원본 열기 버튼
-        self.open_original_button = QPushButton("[경로] 원본 열기")
+        self.open_original_button = QPushButton("📂 원본 열기")
         self.open_original_button.setFixedSize(100, 35)
         self.open_original_button.setStyleSheet("""
             QPushButton {

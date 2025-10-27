@@ -661,7 +661,7 @@ class SearchIndexer:
                 "files": {},
                 "last_indexed": datetime.now().isoformat(),
                 "total_files": len(self.indexed_paths),
-                "index_version": "1.0"
+                "index_version": "1.1"  # v1.1: 페이지별 데이터 저장 추가
             }
             
             # 파일별 정보 저장 (파일명 + 내용)
@@ -723,7 +723,7 @@ class SearchIndexer:
                 cache_data = json.load(f)
             
             # 캐시 버전 체크
-            if cache_data.get("index_version") != "1.0":
+            if cache_data.get("index_version") != "1.1":
                 print("[경고] 캐시 버전 불일치. 새로 인덱싱이 필요합니다.")
                 return False, [], []
             
