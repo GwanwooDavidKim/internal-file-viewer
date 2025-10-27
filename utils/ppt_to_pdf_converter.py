@@ -41,7 +41,7 @@ class PptToPdfConverter:
         self.cache_max_size = 1024 * 1024 * 1024  # 1GB
         self.cache_max_age = timedelta(days=7)  # 7일
         
-        print(f"🔄 PptToPdfConverter 초기화 - 캐시 폴더: {self.cache_dir}")
+        print(f"[초기화] PptToPdfConverter - 캐시 폴더: {self.cache_dir}")
         if self.libreoffice_path:
             print(f"[완료] LibreOffice 발견: {self.libreoffice_path}")
             logger.info(f"[완료] LibreOffice 발견: {self.libreoffice_path}")
@@ -63,7 +63,7 @@ class PptToPdfConverter:
         ]
         
         # PATH에서 찾기 (타임아웃 늘리고 디버깅 강화)
-        logger.info("🔍 PATH에서 LibreOffice 검색 중...")
+        logger.info("[검색] PATH에서 LibreOffice 검색 중...")
         try:
             result = subprocess.run(["soffice", "--version"], 
                                   capture_output=True, text=True, timeout=15)

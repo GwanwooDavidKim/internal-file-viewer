@@ -609,7 +609,7 @@ class SearchIndexer:
         """인덱스를 초기화합니다."""
         self.index = SearchIndex()
         self.indexed_paths.clear()
-        print("🧹 검색 인덱스가 초기화되었습니다.")
+        print("[초기화] 검색 인덱스가 초기화되었습니다.")
     
     def stop_indexing_process(self):
         """인덱싱 프로세스를 중단합니다."""
@@ -940,7 +940,7 @@ class SearchIndexer:
             return []
         
         try:
-            print(f"🔍 JSON에서 '{query}' 검색 중...")
+            print(f"[검색] JSON에서 '{query}' 검색 중...")
             
             with open(str(self.cache_file_path), 'r', encoding='utf-8') as f:
                 cache_data = json.load(f)
