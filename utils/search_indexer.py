@@ -74,7 +74,7 @@ class SearchIndex:
         
         return filtered_tokens
     
-    def add_file(self, file_path: str, content: str, file_info: Dict[str, Any], pages_data: List[Dict[str, Any]] = None):
+    def add_file(self, file_path: str, content: str, file_info: Dict[str, Any], pages_data: Optional[List[Dict[str, Any]]] = None):
         """
         파일을 인덱스에 추가합니다.
         
@@ -701,7 +701,7 @@ class SearchIndexer:
         except Exception as e:
             print(f"[오류] 인덱스 캐시 저장 실패: {e}")
     
-    def load_index_from_cache(self, directory_path: str = None, recursive: bool = True) -> Tuple[bool, List[str], List[str]]:
+    def load_index_from_cache(self, directory_path: Optional[str] = None, recursive: bool = True) -> Tuple[bool, List[str], List[str]]:
         """
         JSON 파일에서 인덱스를 로드합니다. (사용자 요청: JSON에서 빠른 검색)
         
@@ -1023,6 +1023,11 @@ class SearchIndexer:
                         file_data.get("content", ""), query
                     )
                     
+                    # 페이지 번호 찾기 (JSON의 pages 데이터에서)
+                    matching_pages = self._find_matching_pages_from_json(
+                        file_data.get("pages", []), keywords, keywords_no_space
+                    )
+                    
                     result = {
                         'file_path': full_path,
                         'filename': file_data.get("title", ""),
@@ -1030,7 +1035,8 @@ class SearchIndexer:
                         'file_size_mb': file_data.get("size", 0),
                         'indexed_time': file_data.get("modified", ""),
                         'preview': preview,
-                        'relevance_score': relevance_score
+                        'relevance_score': relevance_score,
+                        'matching_pages': matching_pages  # 페이지 번호 추가!
                     }
                     results.append(result)
             
@@ -1096,6 +1102,45 @@ class SearchIndexer:
         except Exception as e:
             print(f"[오류] JSON 파일명 검색 실패: {e}")
             return []
+    
+    def _find_matching_pages_from_json(self, pages_data: List[Dict[str, Any]], 
+                                       keywords: List[str], keywords_no_space: List[str]) -> List[int]:
+        """
+        JSON 페이지 데이터에서 키워드가 포함된 페이지 번호를 찾습니다.
+        
+        Args:
+            pages_data (List[Dict[str, Any]]): 페이지 데이터 리스트
+            keywords (List[str]): 검색 키워드 리스트
+            keywords_no_space (List[str]): 공백 제거한 키워드 리스트
+            
+        Returns:
+            List[int]: 매칭된 페이지 번호 목록
+        """
+        if not pages_data:
+            return []
+        
+        matching_pages = []
+        
+        for page in pages_data:
+            page_num = page.get('page_num', 0)
+            content = page.get('content', '').lower()
+            content_no_space = content.replace(' ', '').replace('\n', '').replace('\t', '')
+            
+            # 모든 키워드가 이 페이지에 있는지 확인
+            all_keywords_found = True
+            for i, keyword in enumerate(keywords):
+                keyword_no_space = keywords_no_space[i]
+                
+                # 일반 검색 + 공백 무시 검색
+                if keyword not in content and keyword_no_space not in content_no_space:
+                    all_keywords_found = False
+                    break
+            
+            # 모든 키워드가 발견되고, Word 문서(page_num=0)가 아니면 추가
+            if all_keywords_found and page_num != 0:
+                matching_pages.append(page_num)
+        
+        return sorted(matching_pages)
     
     def _extract_context_from_content(self, content: str, query: str, context_length: int = 150) -> str:
         """
