@@ -661,7 +661,7 @@ class SearchIndexer:
                 "files": {},
                 "last_indexed": datetime.now().isoformat(),
                 "total_files": len(self.indexed_paths),
-                "index_version": "1.1"  # v1.1: 페이지별 데이터 저장 추가
+                "index_version": "2.0"  # v2.0: 페이지별 데이터 추출 로직 수정 (멀티스레드 인덱싱에도 적용)
             }
             
             # 파일별 정보 저장 (파일명 + 내용)
@@ -723,7 +723,7 @@ class SearchIndexer:
                 cache_data = json.load(f)
             
             # 캐시 버전 체크
-            if cache_data.get("index_version") != "1.1":
+            if cache_data.get("index_version") != "2.0":
                 print("[경고] 캐시 버전 불일치. 새로 인덱싱이 필요합니다.")
                 return False, [], []
             
@@ -912,8 +912,23 @@ class SearchIndexer:
                 # 텍스트 추출
                 content = self.file_manager.extract_text(file_path)
                 
+                # 페이지별 데이터 추출 (PDF/PowerPoint만)
+                file_type = self.file_manager.get_file_type(file_path)
+                pages_data = None
+                if file_type == 'pdf':
+                    pdf_handler = self.file_manager.handlers.get('pdf')
+                    if pdf_handler:
+                        pages_data = pdf_handler.extract_text_by_pages(file_path)
+                elif file_type == 'powerpoint':
+                    ppt_handler = self.file_manager.handlers.get('powerpoint')
+                    if ppt_handler:
+                        pages_data = ppt_handler.extract_text_by_slides(file_path)
+                elif file_type == 'word':
+                    # Word는 페이지 구분 어려움 - 메타데이터로 표시
+                    pages_data = [{"page_num": 0, "content": "(Word 문서는 페이지 구분이 어렵습니다)"}]
+                
                 # 스레드 안전하게 인덱스에 추가
-                self.index.add_file(file_path, content, file_info)
+                self.index.add_file(file_path, content, file_info, pages_data)
                 self.indexed_paths.add(file_path)
                 
                 return True

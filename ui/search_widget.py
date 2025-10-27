@@ -96,7 +96,7 @@ class SearchWidget(QWidget):
         # 🆕 내용 검색 입력
         content_search_layout = QHBoxLayout()
         
-        content_label = QLabel("[파일] 내용:")
+        content_label = QLabel("📄 [파일] 내용:")
         content_label.setMinimumWidth(60)
         content_search_layout.addWidget(content_label)
         
@@ -165,8 +165,8 @@ class SearchWidget(QWidget):
         self.sort_combo = QComboBox()
         self.sort_combo.addItems([
             "[정렬] 관련성 순 (기본)",
-            "[폴더] 파일명 (오름차순)", 
-            "[폴더] 파일명 (내림차순)",
+            "📁 [폴더] 파일명 (오름차순)", 
+            "📁 [폴더] 파일명 (내림차순)",
             "[날짜] 최신 변경일 순",
             "[날짜] 오래된 변경일 순",
             "📏 파일크기 (큰순)",
@@ -376,7 +376,7 @@ class SearchWidget(QWidget):
             directory_path (str): 디렉토리 경로
         """
         self.current_directory = directory_path
-        self.index_button.setText(f"[경로] '{os.path.basename(directory_path)}' 인덱싱")
+        self.index_button.setText(f"📂 [경로] '{os.path.basename(directory_path)}' 인덱싱")
         self.index_button.setEnabled(True)
     
     def start_indexing(self):
@@ -663,7 +663,7 @@ class SearchWidget(QWidget):
             # 확장자 헤더 추가
             if len(grouped_results) > 1:  # 여러 확장자가 있을 때만 헤더 표시
                 header_item = QListWidgetItem()
-                header_text = f"[폴더] {ext.upper()} 파일 ({len(ext_results)}개)"
+                header_text = f"📁 [폴더] {ext.upper()} 파일 ({len(ext_results)}개)"
                 header_item.setText(header_text)
                 header_item.setData(Qt.ItemDataRole.UserRole, None)  # 헤더는 선택 불가
                 
@@ -692,7 +692,7 @@ class SearchWidget(QWidget):
                 
                 # 🆕 디렉토리 헤더 항상 표시 (경로 정보 제공)
                 dir_header = QListWidgetItem()
-                dir_header_text = f"  [경로] {display_path} ({len(dir_results)}개)"
+                dir_header_text = f"  📂 [경로] {display_path} ({len(dir_results)}개)"
                 dir_header.setText(dir_header_text)
                 dir_header.setData(Qt.ItemDataRole.UserRole, None)
                 
@@ -723,7 +723,7 @@ class SearchWidget(QWidget):
                             page_info = f" | 페이지: {', '.join(map(str, matching_pages[:5]))}... ({len(matching_pages)}개)"
                     
                     # 파일 아이콘과 정보 표시 (들여쓰기)
-                    item_text = f"    [파일] {filename} ({file_type}, {file_size}MB){page_info}"
+                    item_text = f"    📄 [파일] {filename} ({file_type}, {file_size}MB){page_info}"
                     item.setText(item_text)
                     
                     # 결과 데이터 저장
