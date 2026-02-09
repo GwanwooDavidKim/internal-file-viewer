@@ -1000,6 +1000,11 @@ class SearchIndexer:
                 if not os.path.exists(full_path):
                     continue
                 
+                # PPT 파일 제외 (PDF로 변환 저장되므로 중복 방지)
+                lower_path = full_path.lower()
+                if lower_path.endswith('.ppt') or lower_path.endswith('.pptx'):
+                    continue
+                
                 # 파일명 + 내용에서 검색
                 title = file_data.get("title", "").lower()
                 content = file_data.get("content", "").lower()
