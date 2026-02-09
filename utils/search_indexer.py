@@ -748,6 +748,11 @@ class SearchIndexer:
                 if not full_path or not os.path.exists(full_path):
                     continue
                 
+                # PPT 파일 제외 (PDF로 변환 저장되므로 중복 방지)
+                lower_path = full_path.lower()
+                if lower_path.endswith('.ppt') or lower_path.endswith('.pptx'):
+                    continue
+                
                 # 파일 해시 체크로 변경 감지
                 current_hash = self._get_file_hash(full_path)
                 cached_hash = file_data.get("file_hash", "")
