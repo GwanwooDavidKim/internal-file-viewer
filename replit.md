@@ -28,6 +28,15 @@ File loading and search indexing operations are performed in background threads 
 ## Search and Indexing System
 The application features a sophisticated full-text search engine with inverted index architecture. The SearchIndexer builds and maintains indices of file contents, supporting both Korean and English text with stopword filtering. The system provides real-time search with result highlighting and context preview.
 
+### Search Features (Updated 2026-02-09)
+- **JSON Cache Search**: `.file_index.json` per directory for fast searching
+- **Exclude Keywords**: Search with content keywords AND exclude keywords (comma-separated). Files containing exclude keywords are removed from results.
+- **No Result Limit**: All matching files returned (no max_results cap)
+- **Collapsible Tree Results**: QTreeWidget with folder-level grouping, click to expand/collapse
+- **PPT Excluded from Indexing**: PowerPoint files excluded (already converted to PDF)
+- **Index Isolation**: Each directory indexing clears previous index data to prevent cross-directory contamination
+- **Cache Directory Filtering**: save_index_to_cache only saves files under the current cache directory
+
 ## Data Storage and Caching
 The application uses in-memory data structures for fast access to indexed content and file metadata. Search indices are built dynamically and can be persisted for performance optimization. The system implements caching strategies for frequently accessed file previews and metadata.
 

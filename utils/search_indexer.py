@@ -412,7 +412,11 @@ class SearchIndexer:
         if not os.path.exists(directory_path):
             return
         
-        # [시작] 캐시 디렉토리 설정 (사용자 요청: 동일 경로에 JSON 파일)
+        # 새 폴더 인덱싱 시작 시 이전 인덱스 초기화 (폴더 간 데이터 혼합 방지)
+        self.index = SearchIndex()
+        self.indexed_paths.clear()
+        
+        # [시작] 캐시 디렉토리 설정
         self.set_cache_directory(directory_path)
         
         # [폴더] 캐시에서 기존 인덱스 로드 시도
@@ -442,7 +446,7 @@ class SearchIndexer:
                             if self.file_manager.is_supported_file(file_path):
                                 # 엑셀 파일은 인덱싱에서 제외 (성능상 이유)
                                 file_type = self.file_manager.get_file_type(file_path)
-                                if file_type != 'excel':
+                                if file_type not in ('excel', 'powerpoint'):
                                     files_to_index.append(file_path)
                 else:
                     for item in os.listdir(directory_path):
@@ -450,7 +454,7 @@ class SearchIndexer:
                         if os.path.isfile(file_path) and self.file_manager.is_supported_file(file_path):
                             # 엑셀 파일은 인덱싱에서 제외 (성능상 이유)
                             file_type = self.file_manager.get_file_type(file_path)
-                            if file_type != 'excel':
+                            if file_type not in ('excel', 'powerpoint'):
                                 files_to_index.append(file_path)
             
             total_files = len(files_to_index)
@@ -511,12 +515,13 @@ class SearchIndexer:
         except Exception as e:
             print(f"[오류] 디렉토리 인덱싱 오류: {e}")
     
-    def search_files(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
+    def search_files(self, query: str, exclude_query: str = "", max_results: int = 0) -> List[Dict[str, Any]]:
         """
         파일을 검색합니다. (JSON 캐시 우선, 폴백으로 메모리 인덱스)
         
         Args:
             query (str): 검색 쿼리
+            exclude_query (str): 제외 키워드
             max_results (int): 최대 결과 수
             
         Returns:
@@ -524,7 +529,7 @@ class SearchIndexer:
         """
         # [시작] JSON 캐시에서 우선 검색 (사용자 요청: JSON에서 바로 검색)
         if self.cache_file_path and os.path.exists(self.cache_file_path):
-            return self.search_files_from_json(query, max_results)
+            return self.search_files_from_json(query, exclude_query, max_results)
         
         # 폴백: 메모리 인덱스에서 검색
         print("[경고] JSON 캐시 없음. 메모리 인덱스에서 검색...")
@@ -541,7 +546,7 @@ class SearchIndexer:
             if self.file_manager.is_supported_file(file_path):
                 # 엑셀 파일은 인덱싱에서 제외 (성능상 이유)
                 file_type = self.file_manager.get_file_type(file_path)
-                if file_type == 'excel':
+                if file_type in ('excel', 'powerpoint'):
                     print(f"[INFO] 엑셀 파일은 인덱싱에서 제외됨: {file_path}")
                     return
                 
@@ -667,6 +672,13 @@ class SearchIndexer:
             # 파일별 정보 저장 (파일명 + 내용)
             for file_path in self.indexed_paths:
                 if file_path in self.index.file_info:
+                    # 현재 캐시 디렉토리 하위 파일만 저장 (상위 폴더 파일 혼입 방지)
+                    try:
+                        rel = os.path.relpath(file_path, str(self.cache_directory))
+                        if rel.startswith('..'):
+                            continue
+                    except ValueError:
+                        continue
                     file_info = self.index.file_info[file_path]
                     relative_path = os.path.relpath(file_path, str(self.cache_directory))
                     
@@ -777,7 +789,7 @@ class SearchIndexer:
                             file_path = os.path.join(root, file)
                             if self.file_manager.is_supported_file(file_path):
                                 file_type = self.file_manager.get_file_type(file_path)
-                                if file_type != 'excel':  # 엑셀 파일 제외
+                                if file_type not in ('excel', 'powerpoint'):  # 엑셀 파일 제외
                                     # 🔧 경로 정규화: 일관성 있는 비교를 위해
                                     normalized_path = os.path.normcase(os.path.normpath(os.path.realpath(file_path)))
                                     current_files.add(normalized_path)
@@ -786,7 +798,7 @@ class SearchIndexer:
                         file_path = os.path.join(directory_path, item)
                         if os.path.isfile(file_path) and self.file_manager.is_supported_file(file_path):
                             file_type = self.file_manager.get_file_type(file_path)
-                            if file_type != 'excel':  # 엑셀 파일 제외
+                            if file_type not in ('excel', 'powerpoint'):  # 엑셀 파일 제외
                                 # 🔧 경로 정규화: 일관성 있는 비교를 위해
                                 normalized_path = os.path.normcase(os.path.normpath(os.path.realpath(file_path)))
                                 current_files.add(normalized_path)
@@ -833,7 +845,7 @@ class SearchIndexer:
                             original_path = os.path.join(root, file)
                             if self.file_manager.is_supported_file(original_path):
                                 file_type = self.file_manager.get_file_type(original_path)
-                                if file_type != 'excel':
+                                if file_type not in ('excel', 'powerpoint'):
                                     normalized = os.path.normcase(os.path.normpath(os.path.realpath(original_path)))
                                     normalized_to_original[normalized] = original_path
                 else:
@@ -841,7 +853,7 @@ class SearchIndexer:
                         original_path = os.path.join(directory_path, item)
                         if os.path.isfile(original_path) and self.file_manager.is_supported_file(original_path):
                             file_type = self.file_manager.get_file_type(original_path)
-                            if file_type != 'excel':
+                            if file_type not in ('excel', 'powerpoint'):
                                 normalized = os.path.normcase(os.path.normpath(os.path.realpath(original_path)))
                                 normalized_to_original[normalized] = original_path
                 
@@ -939,7 +951,7 @@ class SearchIndexer:
             print(f"[오류] 파일 인덱싱 오류 ({file_path}): {e}")
             return False
     
-    def search_files_from_json(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
+    def search_files_from_json(self, query: str, exclude_query: str = "", max_results: int = 0) -> List[Dict[str, Any]]:
         """
         JSON 캐시에서 직접 검색합니다. (사용자 요청: JSON에서 바로 빠른 검색)
         
@@ -970,6 +982,17 @@ class SearchIndexer:
             
             # 🆕 공백 제거 버전 키워드 생성 (띄어쓰기 무시 검색용)
             keywords_no_space = [kw.replace(' ', '').replace('\n', '').replace('\t', '') for kw in keywords]
+            
+            # 제외 키워드 파싱
+            if exclude_query:
+                if ',' in exclude_query:
+                    exclude_keywords = [kw.strip().lower() for kw in exclude_query.split(',') if kw.strip()]
+                else:
+                    exclude_keywords = [exclude_query.lower()]
+                exclude_keywords_no_space = [kw.replace(' ', '').replace('\n', '').replace('\t', '') for kw in exclude_keywords]
+            else:
+                exclude_keywords = []
+                exclude_keywords_no_space = []
             
             # 파일별로 검색 수행
             for relative_path, file_data in cache_data.get("files", {}).items():
@@ -1008,6 +1031,14 @@ class SearchIndexer:
                     if keyword in content or keyword_no_space in content_no_space:
                         content_matches += 1
                 
+                # 제외 키워드 체크
+                if all_keywords_found and exclude_keywords:
+                    for i_ex, ex_keyword in enumerate(exclude_keywords):
+                        ex_keyword_no_space = exclude_keywords_no_space[i_ex]
+                        if ex_keyword in search_text or ex_keyword_no_space in search_text_no_space:
+                            all_keywords_found = False
+                            break
+                
                 # 매칭 체크
                 filename_match = filename_matches > 0
                 content_match = content_matches > 0
@@ -1044,13 +1075,15 @@ class SearchIndexer:
             results.sort(key=lambda x: x['relevance_score'], reverse=True)
             
             print(f"[성공] JSON 검색 완료: {len(results)}개 결과")
-            return results[:max_results]
+            if max_results > 0:
+                return results[:max_results]
+            return results
             
         except Exception as e:
             print(f"[오류] JSON 검색 실패: {e}")
             return []
     
-    def search_files_by_filename_from_json(self, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
+    def search_files_by_filename_from_json(self, query: str, max_results: int = 0) -> List[Dict[str, Any]]:
         """
         JSON 캐시에서 파일명으로만 검색합니다. (초고속)
         
@@ -1097,7 +1130,9 @@ class SearchIndexer:
                     results.append(result)
             
             results.sort(key=lambda x: x['relevance_score'], reverse=True)
-            return results[:max_results]
+            if max_results > 0:
+                return results[:max_results]
+            return results
             
         except Exception as e:
             print(f"[오류] JSON 파일명 검색 실패: {e}")
